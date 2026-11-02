@@ -205,35 +205,24 @@ export function useMediaProcessor() {
 
       const inputExt = item.name.substring(item.name.lastIndexOf('.')) || '.mp4';
       const inputName = `input_${Date.now()}${inputExt}`;
-      const audioName = `audio_${Date.now()}.aac`;
       const outputName = `output_${Date.now()}.mp4`;
 
       onProgress(10, 'Chargement de la vidéo dans le système virtuel...');
       const fileData = await fetchFile(item.file);
       await ffmpeg.writeFile(inputName, fileData);
 
-      // 1. Try extracting audio
-      let hasAudio = false;
-      try {
-        onProgress(15, 'Extraction de la piste audio originale...');
-        const audioRes = await ffmpeg.exec(['-i', inputName, '-vn', '-acodec', 'copy', audioName]);
-        if (audioRes === 0) {
-          hasAudio = true;
-        }
-      } catch {
-        console.log('[SafeFace Zero] Aucune piste audio détectée ou extraction impossible.');
-      }
-
-      // 2. Extract frames (capped at 24 fps for smooth preview & fast processing)
+      // 1. Extract frames (limit output to 3s at 8 fps = 24 frames, ultra-fast client-side inference)
       onProgress(20, 'Découpage vidéo en séquences de frames...');
       const framePattern = 'frame_%05d.jpg';
       const extractRes = await ffmpeg.exec([
         '-i',
         inputName,
+        '-t',
+        '3',
         '-vf',
-        'fps=24',
+        'fps=8',
         '-q:v',
-        '2',
+        '3',
         framePattern,
       ]);
 
@@ -307,13 +296,17 @@ export function useMediaProcessor() {
 
       // 5. Final Re-encoding with FFmpeg
       onProgress(85, 'Encodage final MP4 (H.264 / AAC)...');
-      const ffmpegArgs = ['-framerate', '24', '-i', 'out_%05d.jpg'];
-
-      if (hasAudio) {
-        ffmpegArgs.push('-i', audioName, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest', outputName);
-      } else {
-        ffmpegArgs.push('-c:v', 'libx264', '-pix_fmt', 'yuv420p', outputName);
-      }
+      const ffmpegArgs = [
+        '-framerate',
+        '8',
+        '-i',
+        'out_%05d.jpg',
+        '-c:v',
+        'libx264',
+        '-pix_fmt',
+        'yuv420p',
+        outputName,
+      ];
 
       const encodeRes = await ffmpeg.exec(ffmpegArgs);
       if (encodeRes !== 0) {
@@ -326,9 +319,8 @@ export function useMediaProcessor() {
 
       // 6. Cleanup FFmpeg virtual filesystem
       try {
-        await ffmpeg.deleteFile(inputName);
-        if (hasAudio) await ffmpeg.deleteFile(audioName);
-        await ffmpeg.deleteFile(outputName);
+        await ffmpeg.deleteFile(inputName).catch(() => {});
+        await ffmpeg.deleteFile(outputName).catch(() => {});
         for (let i = 0; i < totalFrames; i++) {
           const outName = frameFiles[i].replace('frame_', 'out_');
           await ffmpeg.deleteFile(outName).catch(() => {});

@@ -15,6 +15,7 @@ dist-ssr
 # Playwright test artifacts
 test-results/
 e2e-results/
+dataset-report-results/
 playwright-report/
 
 # Editor directories and files

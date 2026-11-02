@@ -17,10 +17,7 @@ export function useFFmpeg() {
     ffmpegRef.current = ffmpeg;
 
     ffmpeg.on('log', ({ message }) => {
-      // debug logs
-      if (message.includes('Error') || message.includes('failed')) {
-        console.warn('[FFmpeg]', message);
-      }
+      console.log('[FFmpeg]', message);
     });
 
     try {
@@ -40,28 +37,12 @@ export function useFFmpeg() {
         : `${import.meta.env.BASE_URL}/`;
       const ffmpegUrl = `${baseUrl}ffmpeg`;
 
-      if (isMultiThreadSupported) {
-        try {
-          await ffmpeg.load({
-            coreURL: await toBlobURL(`${ffmpegUrl}/ffmpeg-core.js`, 'text/javascript'),
-            wasmURL: await toBlobURL(`${ffmpegUrl}/ffmpeg-core.wasm`, 'application/wasm'),
-            workerURL: await toBlobURL(`${ffmpegUrl}/ffmpeg-core.worker.js`, 'text/javascript'),
-          });
-          console.log('[SafeFace Zero] Multithreaded FFmpeg loaded.');
-        } catch (mtErr) {
-          console.warn('[SafeFace Zero] Multithreaded load failed, falling back to single-threaded:', mtErr);
-          await ffmpeg.load({
-            coreURL: await toBlobURL(`${ffmpegUrl}/st/ffmpeg-core.js`, 'text/javascript'),
-            wasmURL: await toBlobURL(`${ffmpegUrl}/st/ffmpeg-core.wasm`, 'application/wasm'),
-          });
-        }
-      } else {
-        await ffmpeg.load({
-          coreURL: await toBlobURL(`${ffmpegUrl}/st/ffmpeg-core.js`, 'text/javascript'),
-          wasmURL: await toBlobURL(`${ffmpegUrl}/st/ffmpeg-core.wasm`, 'application/wasm'),
-        });
-        console.log('[SafeFace Zero] Single-threaded FFmpeg loaded.');
-      }
+      // Load single-threaded FFmpeg (fully deterministic, no pthread deadlock in headless environments)
+      await ffmpeg.load({
+        coreURL: await toBlobURL(`${ffmpegUrl}/st/ffmpeg-core.js`, 'text/javascript'),
+        wasmURL: await toBlobURL(`${ffmpegUrl}/st/ffmpeg-core.wasm`, 'application/wasm'),
+      });
+      console.log('[SafeFace Zero] FFmpeg loaded successfully.');
 
       setIsLoaded(true);
       return ffmpeg;

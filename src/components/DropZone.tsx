@@ -210,12 +210,12 @@ export const DropZone: React.FC<DropZoneProps> = ({ onFilesAdded, disabled }) =>
             <button
               type="button"
               disabled={disabled || isLoadingSample}
-              onClick={() => handleLoadSampleFile('sample-face-walking.mp4', 'video_visages_test.mp4', 'video/mp4')}
+              onClick={() => handleLoadSampleFile('sample-face-walking.webm', 'video_visages_test.webm', 'video/webm')}
               className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-950/60 hover:bg-indigo-900/70 border border-indigo-500/40 disabled:opacity-50 px-2.5 py-1 text-xs font-semibold text-indigo-200 transition-colors"
               title="Tester avec un clip vidéo"
             >
               <Video className="h-3 w-3 text-indigo-400" />
-              Clip Vidéo (MP4)
+              Clip Vidéo (WebM/MP4)
             </button>
           </div>
         </div>
