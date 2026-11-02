@@ -25,6 +25,7 @@ export const App: React.FC = () => {
     clearQueue,
     processItem,
     processAll,
+    cancelProcessing,
     exportAllAsZip,
   } = useMediaProcessor();
 
@@ -108,6 +109,7 @@ export const App: React.FC = () => {
               onProcessAll={processAll}
               onRemoveItem={removeFromQueue}
               onClearQueue={clearQueue}
+              onCancelProcessing={cancelProcessing}
               onExportZip={exportAllAsZip}
               onOpenPreview={setPreviewItem}
             />

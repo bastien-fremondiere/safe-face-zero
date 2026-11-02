@@ -13,6 +13,7 @@ import {
   Play,
   Archive,
   RotateCcw,
+  XCircle,
 } from 'lucide-react';
 import fileSaver from 'file-saver';
 import { QueueItem } from '../types';
@@ -29,6 +30,7 @@ interface MediaQueueProps {
   onClearQueue: () => void;
   onExportZip: () => void;
   onOpenPreview: (item: QueueItem) => void;
+  onCancelProcessing?: () => void;
 }
 
 export const MediaQueue: React.FC<MediaQueueProps> = ({
@@ -41,6 +43,7 @@ export const MediaQueue: React.FC<MediaQueueProps> = ({
   onClearQueue,
   onExportZip,
   onOpenPreview,
+  onCancelProcessing,
 }) => {
   if (queue.length === 0) {
     return null;
@@ -86,6 +89,18 @@ export const MediaQueue: React.FC<MediaQueueProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
+          {isProcessing && onCancelProcessing && (
+            <button
+              type="button"
+              onClick={onCancelProcessing}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-red-950/60 hover:bg-red-900/80 border border-red-500/40 text-red-200 font-semibold text-xs px-3 py-2.5 transition-colors cursor-pointer"
+              title="Arrêter immédiatement le traitement"
+            >
+              <XCircle className="h-4 w-4 text-red-400" />
+              Arrêter
+            </button>
+          )}
+
           {pendingCount > 0 && (
             <button
               type="button"

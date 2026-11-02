@@ -8,9 +8,13 @@ import {
   Stamp,
   Maximize2,
   Trash2,
+  Cpu,
+  Smartphone,
+  Zap,
 } from 'lucide-react';
 import { AnonymizationSettings, WatermarkPosition } from '../types';
 import { loadImage } from '../utils/canvasMasker';
+import { detectDeviceProfile } from '../utils/performance';
 
 interface SettingsPanelProps {
   settings: AnonymizationSettings;
@@ -20,6 +24,7 @@ interface SettingsPanelProps {
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate }) => {
   const logoInputRef = useRef<HTMLInputElement>(null);
   const watermarkInputRef = useRef<HTMLInputElement>(null);
+  const deviceProfile = detectDeviceProfile();
 
   // Handle Face Logo Upload
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -418,6 +423,124 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
               </div>
             </div>
           )}
+        </div>
+
+        {/* 5. OPTIMISATIONS VIDÉO & PERFORMANCES (Mobile & PC Modestes) */}
+        <div className="rounded-xl bg-slate-800/40 p-4 border border-slate-700/50">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Zap className="h-4 w-4 text-amber-400" />
+              <label className="text-sm font-semibold text-slate-200">
+                Optimisations Vidéo & Anti-OOM
+              </label>
+            </div>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium bg-slate-900 border border-slate-700 text-slate-300">
+              {deviceProfile.isMobile ? (
+                <>
+                  <Smartphone className="h-3 w-3 text-emerald-400" />
+                  <span>Mobile ({deviceProfile.cores} cœurs)</span>
+                </>
+              ) : (
+                <>
+                  <Cpu className="h-3 w-3 text-blue-400" />
+                  <span>{deviceProfile.cores} cœurs • {deviceProfile.memoryGb} Go RAM</span>
+                </>
+              )}
+            </div>
+          </div>
+
+          <p className="mt-1 text-xs text-slate-400">
+            Évite les dépassements de mémoire vive (OOM) et les blocages du navigateur sur smartphone et ordinateurs portables.
+          </p>
+
+          <div className="mt-4 space-y-4">
+            {/* Mode Éco Toggle */}
+            <div className="flex items-center justify-between rounded-lg bg-slate-900/60 p-3 border border-slate-800">
+              <div className="space-y-0.5">
+                <span className="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
+                  Mode Éco & Basse Consommation
+                  {settings.videoEcoMode && (
+                    <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/30">
+                      Actif
+                    </span>
+                  )}
+                </span>
+                <p className="text-[11px] text-slate-400">
+                  Résolution 480p, encodage ultra-rapide et pauses anti-freeze (recommandé).
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                checked={settings.videoEcoMode}
+                onChange={(e) => onUpdate({ videoEcoMode: e.target.checked })}
+                className="h-4 w-4 rounded border-slate-700 bg-slate-800 text-blue-500 focus:ring-blue-500 cursor-pointer"
+              />
+            </div>
+
+            {/* Max Resolution Selector */}
+            <div>
+              <div className="flex justify-between items-center text-xs mb-1.5">
+                <span className="text-slate-300 font-medium">Résolution max du traitement :</span>
+                <span className="font-mono text-blue-400 font-semibold">{settings.videoMaxResolution}</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {(['480p', '720p', '1080p'] as const).map((res) => (
+                  <button
+                    key={res}
+                    type="button"
+                    onClick={() => onUpdate({ videoMaxResolution: res })}
+                    className={`rounded-lg py-1.5 text-xs font-semibold transition-all border ${
+                      settings.videoMaxResolution === res
+                        ? 'bg-blue-600 border-blue-500 text-white shadow-sm'
+                        : 'bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    {res} {res === '480p' ? '(Léger)' : res === '720p' ? '(Équilibré)' : '(HD)'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Frame Skip / AI Acceleration */}
+            <div className="flex items-center justify-between rounded-lg bg-slate-900/60 p-3 border border-slate-800">
+              <div className="space-y-0.5">
+                <span className="text-xs font-semibold text-slate-200">
+                  Accélération IA (Interpolation 1 frame / 2)
+                </span>
+                <p className="text-[11px] text-slate-400">
+                  Divise par deux la charge WebGL en suivant les visages entre les frames.
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                checked={settings.videoFrameSkip}
+                onChange={(e) => onUpdate({ videoFrameSkip: e.target.checked })}
+                className="h-4 w-4 rounded border-slate-700 bg-slate-800 text-blue-500 focus:ring-blue-500 cursor-pointer"
+              />
+            </div>
+
+            {/* Video FPS Slider */}
+            <div>
+              <div className="flex justify-between items-center text-xs mb-1">
+                <span className="text-slate-300 font-medium">Cadence d'analyse vidéo :</span>
+                <span className="font-mono text-blue-400 font-semibold">{settings.videoFps} fps</span>
+              </div>
+              <input
+                type="range"
+                min="6"
+                max="15"
+                step="1"
+                value={settings.videoFps}
+                onChange={(e) => onUpdate({ videoFps: Number(e.target.value) })}
+                className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+              />
+              <div className="flex justify-between text-[10px] text-slate-500 mt-1">
+                <span>6 fps (Ultra-léger)</span>
+                <span>8 fps (Standard)</span>
+                <span>15 fps (Fluide)</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -18,8 +18,11 @@ import {
   createAnonymizedZip,
   getFileCategory,
 } from '../utils/zipHandler';
+import { detectDeviceProfile, yieldToEventLoop } from '../utils/performance';
 
 const saveAs = (fileSaver as unknown as { saveAs?: typeof fileSaver }).saveAs || fileSaver;
+
+const deviceProfile = detectDeviceProfile();
 
 const DEFAULT_SETTINGS: AnonymizationSettings = {
   ageThreshold: 16,
@@ -34,6 +37,10 @@ const DEFAULT_SETTINGS: AnonymizationSettings = {
   watermarkPosition: 'bottom-right',
   watermarkOpacity: 80,
   watermarkScale: 15,
+  videoEcoMode: deviceProfile.isLowEnd,
+  videoMaxResolution: deviceProfile.isLowEnd ? '480p' : '720p',
+  videoFps: 8,
+  videoFrameSkip: deviceProfile.isLowEnd,
 };
 
 export function useMediaProcessor() {
@@ -194,6 +201,7 @@ export function useMediaProcessor() {
 
   /**
    * Process a single video item via FFmpeg.wasm and face-api
+   * Optimized for Mobile and Low-End PCs (Anti-OOM & Anti-Freeze)
    */
   const processVideoItem = useCallback(
     async (
@@ -211,16 +219,27 @@ export function useMediaProcessor() {
       const fileData = await fetchFile(item.file);
       await ffmpeg.writeFile(inputName, fileData);
 
-      // 1. Extract frames (limit output to 3s at 8 fps = 24 frames, ultra-fast client-side inference)
-      onProgress(20, 'Découpage vidéo en séquences de frames...');
+      // 1. Calculate optimal scaling to avoid OOM on mobile/low-end hardware
+      let maxDim = 1280; // default 720p
+      if (settings.videoEcoMode || settings.videoMaxResolution === '480p') {
+        maxDim = 640;
+      } else if (settings.videoMaxResolution === '1080p') {
+        maxDim = 1920;
+      }
+
+      const targetFps = Math.max(6, Math.min(15, settings.videoFps || 8));
+      const vfFilter = `scale='min(${maxDim},iw)':-2,fps=${targetFps}`;
+
+      // 2. Extract frames with downscaling filter (max 4s at targeted fps)
+      onProgress(18, `Découpage optimisé (${settings.videoEcoMode ? 'Mode Éco 480p' : '720p'}, ${targetFps} fps)...`);
       const framePattern = 'frame_%05d.jpg';
       const extractRes = await ffmpeg.exec([
         '-i',
         inputName,
         '-t',
-        '3',
+        '4',
         '-vf',
-        'fps=8',
+        vfFilter,
         '-q:v',
         '3',
         framePattern,
@@ -246,18 +265,23 @@ export function useMediaProcessor() {
       let totalFacesMasked = 0;
       let videoWidth = 0;
       let videoHeight = 0;
+      let previousFaces: DetectedFace[] = [];
 
-      // 4. Process each frame through Face-API and Canvas Masker
+      // 4. Process each frame with in-flight memory deallocation and UI yielding
       for (let i = 0; i < totalFrames; i++) {
         if (cancelProcessingRef.current) {
           throw new Error('Traitement annulé par l’utilisateur.');
         }
 
         const frameFileName = frameFiles[i];
-        const percent = 25 + Math.round((i / totalFrames) * 55);
+        const percent = 20 + Math.round((i / totalFrames) * 60);
         onProgress(percent, `Traitement IA frame ${i + 1}/${totalFrames}...`);
 
+        // Read raw frame data
         const rawFrameData = (await ffmpeg.readFile(frameFileName)) as Uint8Array;
+        // Immediately delete extracted frame from FFmpeg MEMFS to prevent heap bloat!
+        await ffmpeg.deleteFile(frameFileName);
+
         const frameBlob = new Blob([new Uint8Array(rawFrameData)], { type: 'image/jpeg' });
         const frameUrl = URL.createObjectURL(frameBlob);
 
@@ -266,10 +290,19 @@ export function useMediaProcessor() {
           videoWidth = img.naturalWidth;
           videoHeight = img.naturalHeight;
 
-          // Run face detection on frame
-          const faces = await detectFaces(img, settings.ageThreshold);
-          totalFacesDetected += faces.length;
-          totalFacesMasked += faces.filter((f) => f.shouldMask).length;
+          // AI Face Detection (with frame-skipping optimization for mobile/low-end CPUs)
+          let faces: DetectedFace[] = [];
+          const shouldRunDetection = !settings.videoFrameSkip || i % 2 === 0 || previousFaces.length === 0;
+
+          if (shouldRunDetection) {
+            faces = await detectFaces(img, settings.ageThreshold);
+            previousFaces = faces;
+            totalFacesDetected += faces.length;
+            totalFacesMasked += faces.filter((f) => f.shouldMask).length;
+          } else {
+            // Smoothly track / reuse previous frame face locations
+            faces = previousFaces;
+          }
 
           // Render & mask
           const canvas = createSourceCanvas(img, videoWidth, videoHeight);
@@ -277,7 +310,7 @@ export function useMediaProcessor() {
 
           // Convert back to JPEG Uint8Array
           const processedBlob: Blob = await new Promise((res, rej) => {
-            canvas.toBlob((b) => (b ? res(b) : rej(new Error('Blob conversion failed'))), 'image/jpeg', 0.9);
+            canvas.toBlob((b) => (b ? res(b) : rej(new Error('Blob conversion failed'))), 'image/jpeg', 0.88);
           });
           const processedBuffer = new Uint8Array(await processedBlob.arrayBuffer());
 
@@ -285,24 +318,32 @@ export function useMediaProcessor() {
           const outFrameName = frameFileName.replace('frame_', 'out_');
           await ffmpeg.writeFile(outFrameName, processedBuffer);
 
-          // Free memory
+          // Free canvas memory explicitly
           canvas.width = 0;
           canvas.height = 0;
-          await ffmpeg.deleteFile(frameFileName);
         } finally {
           URL.revokeObjectURL(frameUrl);
         }
+
+        // Cooperative yield to browser event loop (prevents freezing UI & enables GC)
+        await yieldToEventLoop(settings.videoEcoMode ? 25 : 5);
       }
 
-      // 5. Final Re-encoding with FFmpeg
-      onProgress(85, 'Encodage final MP4 (H.264 / AAC)...');
+      // 5. Final Re-encoding with FFmpeg (ultrafast/veryfast preset to prevent CPU throttling)
+      onProgress(85, 'Encodage final MP4 (H.264 ultra-léger)...');
       const ffmpegArgs = [
         '-framerate',
-        '8',
+        `${targetFps}`,
         '-i',
         'out_%05d.jpg',
         '-c:v',
         'libx264',
+        '-preset',
+        settings.videoEcoMode ? 'ultrafast' : 'veryfast',
+        '-tune',
+        'fastdecode',
+        '-crf',
+        settings.videoEcoMode ? '28' : '24',
         '-pix_fmt',
         'yuv420p',
         outputName,
