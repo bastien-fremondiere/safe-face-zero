@@ -47,7 +47,7 @@ export const ImageLoupe: React.FC<ImageLoupeProps> = ({
       const targetImg = targetImgRef.current;
       const canvas = canvasRef.current;
 
-      if (!container || !targetImg || !canvas || !enabled || isDragging) {
+      if (!container || !targetImg || !enabled || isDragging) {
         setLoupeState((prev) => (prev.visible ? { ...prev, visible: false } : prev));
         return;
       }
@@ -95,103 +95,104 @@ export const ImageLoupe: React.FC<ImageLoupeProps> = ({
         loupeY = Math.max(12, containerRect.height - 12 - size);
       }
 
-      // Draw magnified content
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      if (canvas.width !== size * dpr || canvas.height !== size * dpr) {
-        canvas.width = size * dpr;
-        canvas.height = size * dpr;
-      }
-
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-
-      ctx.save();
-      ctx.scale(dpr, dpr);
-      ctx.clearRect(0, 0, size, size);
-
-      // Circular clip path
-      ctx.beginPath();
-      ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
-      ctx.clip();
-
-      // Background fill
-      ctx.fillStyle = '#090d16';
-      ctx.fillRect(0, 0, size, size);
-
-      const naturalW = targetImg.naturalWidth;
-      const naturalH = targetImg.naturalHeight;
-
-      // Calculate crop rectangle in natural image pixels
-      const cropDispW = size / zoom;
-      const cropDispH = size / zoom;
-      const cropNatW = (cropDispW / imgRect.width) * naturalW;
-      const cropNatH = (cropDispH / imgRect.height) * naturalH;
-      const cropNatX = normX * naturalW - cropNatW / 2;
-      const cropNatY = normY * naturalH - cropNatH / 2;
-
-      // 1. Draw Target Image (Anonymized or single image)
-      ctx.drawImage(
-        targetImg,
-        cropNatX,
-        cropNatY,
-        cropNatW,
-        cropNatH,
-        0,
-        0,
-        size,
-        size
-      );
-
       let side: 'before' | 'after' | 'split' = 'after';
 
-      // 2. If secondary image and slider position exist, draw the split view
-      const secondaryImg = secondaryImgRef?.current;
-      if (secondaryImg && secondaryImg.complete && sliderPosition !== undefined) {
-        const dividerDispX = (sliderPosition / 100) * imgRect.width;
-        // Position of divider line on loupe canvas
-        const dividerCanvasX = (dividerDispX - relImgX) * zoom + size / 2;
+      // Draw magnified content if canvas is ready
+      if (canvas) {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        if (canvas.width !== size * dpr || canvas.height !== size * dpr) {
+          canvas.width = size * dpr;
+          canvas.height = size * dpr;
+        }
 
-        if (dividerCanvasX > 0) {
-          // Draw Original (left side)
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
           ctx.save();
+          ctx.scale(dpr, dpr);
+          ctx.clearRect(0, 0, size, size);
+
+          // Circular clip path
           ctx.beginPath();
-          ctx.rect(0, 0, Math.min(dividerCanvasX, size), size);
+          ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
           ctx.clip();
 
-          ctx.drawImage(
-            secondaryImg,
-            cropNatX,
-            cropNatY,
-            cropNatW,
-            cropNatH,
-            0,
-            0,
-            size,
-            size
-          );
-          ctx.restore();
+          // Background fill
+          ctx.fillStyle = '#090d16';
+          ctx.fillRect(0, 0, size, size);
 
-          if (dividerCanvasX < size) {
-            side = 'split';
-            // Draw subtle divider line
-            ctx.beginPath();
-            ctx.moveTo(dividerCanvasX, 0);
-            ctx.lineTo(dividerCanvasX, size);
-            ctx.lineWidth = 2;
-            ctx.strokeStyle = '#ffffff';
-            ctx.shadowColor = 'rgba(59, 130, 246, 0.8)';
-            ctx.shadowBlur = 4;
-            ctx.stroke();
-            ctx.shadowBlur = 0;
-          } else {
-            side = 'before';
+          const naturalW = targetImg.naturalWidth;
+          const naturalH = targetImg.naturalHeight;
+
+          // Calculate crop rectangle in natural image pixels
+          const cropDispW = size / zoom;
+          const cropDispH = size / zoom;
+          const cropNatW = (cropDispW / imgRect.width) * naturalW;
+          const cropNatH = (cropDispH / imgRect.height) * naturalH;
+          const cropNatX = normX * naturalW - cropNatW / 2;
+          const cropNatY = normY * naturalH - cropNatH / 2;
+
+          // Safe clamped helper to draw without throwing IndexSizeError
+          const drawSafe = (img: HTMLImageElement) => {
+            const sx = Math.max(0, cropNatX);
+            const sy = Math.max(0, cropNatY);
+            const sRight = Math.min(naturalW, cropNatX + cropNatW);
+            const sBottom = Math.min(naturalH, cropNatY + cropNatH);
+            const sw = Math.max(0, sRight - sx);
+            const sh = Math.max(0, sBottom - sy);
+
+            const dx = (sx - cropNatX) * (size / cropNatW);
+            const dy = (sy - cropNatY) * (size / cropNatH);
+            const dw = sw * (size / cropNatW);
+            const dh = sh * (size / cropNatH);
+
+            if (sw > 0 && sh > 0 && dw > 0 && dh > 0) {
+              ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+            }
+          };
+
+          // 1. Draw Target Image (Anonymized or single image)
+          drawSafe(targetImg);
+
+          // 2. If secondary image and slider position exist, draw the split view
+          const secondaryImg = secondaryImgRef?.current;
+          if (secondaryImg && secondaryImg.complete && sliderPosition !== undefined) {
+            const dividerDispX = (sliderPosition / 100) * imgRect.width;
+            // Position of divider line on loupe canvas
+            const dividerCanvasX = (dividerDispX - relImgX) * zoom + size / 2;
+
+            if (dividerCanvasX > 0) {
+              // Draw Original (left side)
+              ctx.save();
+              ctx.beginPath();
+              ctx.rect(0, 0, Math.min(dividerCanvasX, size), size);
+              ctx.clip();
+
+              drawSafe(secondaryImg);
+              ctx.restore();
+
+              if (dividerCanvasX < size) {
+                side = 'split';
+                // Draw vertical divider line
+                ctx.beginPath();
+                ctx.moveTo(dividerCanvasX, 0);
+                ctx.lineTo(dividerCanvasX, size);
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#ffffff';
+                ctx.shadowColor = 'rgba(59, 130, 246, 0.8)';
+                ctx.shadowBlur = 4;
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+              } else {
+                side = 'before';
+              }
+            } else {
+              side = 'after';
+            }
           }
-        } else {
-          side = 'after';
+
+          ctx.restore();
         }
       }
-
-      ctx.restore();
 
       setLoupeState({
         visible: true,
@@ -211,7 +212,6 @@ export const ImageLoupe: React.FC<ImageLoupeProps> = ({
     }
 
     const handlePointerMove = (e: PointerEvent) => {
-      // Don't show loupe while dragging or if pointer type is not mouse/pen
       if (isDragging) {
         setLoupeState((prev) => (prev.visible ? { ...prev, visible: false } : prev));
         return;
@@ -232,16 +232,19 @@ export const ImageLoupe: React.FC<ImageLoupeProps> = ({
     };
   }, [containerRef, enabled, isDragging, renderLoupe]);
 
-  if (!enabled || !loupeState.visible || isDragging) return null;
+  if (!enabled || isDragging) return null;
 
   return (
     <div
-      className="absolute pointer-events-none z-40 transition-transform duration-75 ease-out select-none"
+      className={`absolute pointer-events-none z-40 select-none transition-opacity duration-100 ${
+        loupeState.visible ? 'opacity-100' : 'opacity-0'
+      }`}
       style={{
         left: `${loupeState.x}px`,
         top: `${loupeState.y}px`,
         width: `${size}px`,
         height: `${size}px`,
+        visibility: loupeState.visible ? 'visible' : 'hidden',
       }}
     >
       <div className="relative w-full h-full rounded-full overflow-hidden border-2 border-white/90 shadow-[0_12px_36px_rgba(0,0,0,0.85)] ring-4 ring-blue-500/40 bg-slate-950">

@@ -181,27 +181,30 @@ export function useFaceApi() {
         }
       }
 
-      // 3. Complementary TinyFaceDetector pass at high input resolution
-      if (faceapi.nets.tinyFaceDetector.isLoaded && (detections.length === 0 || isImage)) {
+      // 3. Fallback TinyFaceDetector pass if SSD found no detections
+      if (faceapi.nets.tinyFaceDetector.isLoaded && detections.length === 0) {
         try {
           const tinyDets = await faceapi
             .detectAllFaces(
               input,
               new faceapi.TinyFaceDetectorOptions({
-                inputSize: isImage && width >= 800 ? 1024 : 416,
-                scoreThreshold: 0.2,
+                inputSize: isImage && width >= 800 ? 512 : 416,
+                scoreThreshold: 0.35,
               })
             )
             .withAgeAndGender();
 
           for (const td of tinyDets) {
-            detections.push({
-              box: td.detection.box,
-              score: td.detection.score,
-              age: Math.round(td.age),
-              gender: td.gender,
-              genderProbability: td.genderProbability,
-            });
+            // Reject unrealistic giant boxes
+            if (td.detection.box.width <= width * 0.5 && td.detection.box.height <= height * 0.5) {
+              detections.push({
+                box: td.detection.box,
+                score: td.detection.score,
+                age: Math.round(td.age),
+                gender: td.gender,
+                genderProbability: td.genderProbability,
+              });
+            }
           }
         } catch (tinyErr) {
           console.warn('[SafeFace Zero] TinyFaceDetector error:', tinyErr);
@@ -211,7 +214,12 @@ export function useFaceApi() {
       // 4. Non-Maximum Suppression to deduplicate candidate boxes
       const finalDetections = applyNms(detections, 0.38);
 
-      return finalDetections.map((det) => ({
+      // Filter out any box that is unreasonably huge (> 60% of image)
+      const validDetections = finalDetections.filter(
+        (det) => det.box.width <= width * 0.6 && det.box.height <= height * 0.6
+      );
+
+      return validDetections.map((det) => ({
         box: det.box,
         age: det.age,
         gender: det.gender || 'unknown',
