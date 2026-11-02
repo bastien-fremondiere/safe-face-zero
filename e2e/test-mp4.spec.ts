@@ -76,5 +76,32 @@ test('Diagnostiquer le traitement vidéo MP4', async ({ page }) => {
     console.log('Preview videos info:', previewInfo);
     expect(previewInfo.length).toBeGreaterThan(0);
     expect(previewInfo[0].blobSize).toBeGreaterThan(100000); // Must be > 100 KB!
+
+    // Decode the processed video and make sure frames are NOT black
+    const lumas = await page.evaluate(async () => {
+      const src = (document.querySelector('.fixed video') as HTMLVideoElement).src;
+      const v = document.createElement('video');
+      v.muted = true;
+      v.src = src;
+      await new Promise((r) => (v.onloadeddata = r));
+      const c = document.createElement('canvas');
+      c.width = 64;
+      c.height = 36;
+      const ctx = c.getContext('2d')!;
+      const out: number[] = [];
+      for (const t of [0.5, 2, 5, 10]) {
+        if (t >= v.duration) continue;
+        v.currentTime = t;
+        await new Promise((r) => (v.onseeked = r));
+        ctx.drawImage(v, 0, 0, 64, 36);
+        const d = ctx.getImageData(0, 0, 64, 36).data;
+        let s = 0;
+        for (let i = 0; i < d.length; i += 4) s += (d[i] + d[i + 1] + d[i + 2]) / 3;
+        out.push(Math.round(s / (d.length / 4)));
+      }
+      return { lumas: out, duration: v.duration };
+    });
+    console.log('Processed video mean luminance per sample:', lumas);
+    for (const l of lumas.lumas) expect(l).toBeGreaterThan(15);
   }
 });

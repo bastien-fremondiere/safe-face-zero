@@ -18,6 +18,7 @@ import {
   getFileCategory,
 } from '../utils/zipHandler';
 import { detectDeviceProfile, yieldToEventLoop } from '../utils/performance';
+import { createDecodingVideo, prepareVideo, grabFrame } from '../utils/videoFrameGrabber';
 
 const saveAs = (fileSaver as unknown as { saveAs?: typeof fileSaver }).saveAs || fileSaver;
 
@@ -199,173 +200,6 @@ export function useMediaProcessor() {
   );
 
   /**
-   * Process a video natively via HTML5 Video, Canvas and MediaRecorder
-   * Ultra-fast, 0 MB WebAssembly download, 100% immune to WASM OOM on mobile.
-   */
-  const processVideoNatively = useCallback(
-    async (
-      item: QueueItem,
-      onProgress: (progress: number, msg: string) => void
-    ): Promise<{ blob: Blob; facesDetected: number; facesMasked: number; dimensions?: { width: number; height: number } }> => {
-      onProgress(10, 'Initialisation du lecteur vidéo matériel...');
-      const videoUrl = URL.createObjectURL(item.file);
-      const video = document.createElement('video');
-      video.src = videoUrl;
-      video.muted = true;
-      video.playsInline = true;
-      video.crossOrigin = 'anonymous';
-      // Temporarily attach to DOM so mobile browsers (Firefox/WebKit) activate hardware decoders
-      video.style.position = 'fixed';
-      video.style.top = '-9999px';
-      video.style.left = '-9999px';
-      video.style.width = '1px';
-      video.style.height = '1px';
-      video.style.opacity = '0';
-      video.style.pointerEvents = 'none';
-      document.body.appendChild(video);
-
-      try {
-        await new Promise<void>((resolve, reject) => {
-          video.onloadedmetadata = () => resolve();
-          video.onerror = () => reject(new Error('Format vidéo non supporté nativement par le navigateur.'));
-        });
-
-        const maxDuration = settings.videoEcoMode ? 10 : 30;
-        const duration = Math.min(video.duration || 4, maxDuration);
-        let width = video.videoWidth || 640;
-        let height = video.videoHeight || 480;
-
-        // Downscale to ensure responsiveness on mobile
-        const maxDim = settings.videoEcoMode || settings.videoMaxResolution === '480p' ? 640 : (settings.videoMaxResolution === '1080p' ? 1920 : 1280);
-        if (width > maxDim || height > maxDim) {
-          if (width >= height) {
-            height = Math.round((height * maxDim) / width);
-            width = maxDim;
-          } else {
-            width = Math.round((width * maxDim) / height);
-            height = maxDim;
-          }
-        }
-
-        // Ensure even dimensions
-        width = width - (width % 2);
-        height = height - (height % 2);
-        if (width < 2) width = 2;
-        if (height < 2) height = 2;
-
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        if (!ctx) throw new Error('Impossible d’initialiser le contexte canvas.');
-
-        // Setup MediaRecorder from canvas stream
-        const targetFps = Math.max(6, Math.min(15, settings.videoFps || 8));
-        const stream = canvas.captureStream(targetFps);
-
-        let mimeType = 'video/webm;codecs=vp8';
-        if (MediaRecorder.isTypeSupported('video/mp4;codecs=avc1')) {
-          mimeType = 'video/mp4;codecs=avc1';
-        } else if (MediaRecorder.isTypeSupported('video/mp4')) {
-          mimeType = 'video/mp4';
-        } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) {
-          mimeType = 'video/webm;codecs=vp9';
-        } else if (MediaRecorder.isTypeSupported('video/webm')) {
-          mimeType = 'video/webm';
-        }
-
-        const mediaRecorder = new MediaRecorder(stream, {
-          mimeType,
-          videoBitsPerSecond: settings.videoEcoMode ? 1000000 : 2500000,
-        });
-
-        const chunks: Blob[] = [];
-        mediaRecorder.ondataavailable = (e) => {
-          if (e.data && e.data.size > 0) chunks.push(e.data);
-        };
-
-        // Flush chunks every 1000ms
-        mediaRecorder.start(1000);
-
-        let totalFacesDetected = 0;
-        let totalFacesMasked = 0;
-        let previousFaces: DetectedFace[] = [];
-
-        const step = 1 / targetFps;
-        const totalSteps = Math.ceil(duration / step);
-        const frameIntervalMs = Math.round(1000 / targetFps);
-
-        for (let stepIdx = 0; stepIdx < totalSteps; stepIdx++) {
-          if (cancelProcessingRef.current) {
-            mediaRecorder.stop();
-            throw new Error('Traitement annulé par l’utilisateur.');
-          }
-
-          const t = stepIdx * step;
-          video.currentTime = t;
-
-          await new Promise<void>((res) => {
-            const onSeeked = () => {
-              video.removeEventListener('seeked', onSeeked);
-              res();
-            };
-            video.addEventListener('seeked', onSeeked);
-            // Safety timeout if seeked is slow on mobile
-            setTimeout(res, 200);
-          });
-
-          const percent = 20 + Math.round((stepIdx / totalSteps) * 65);
-          onProgress(percent, `Traitement IA frame ${stepIdx + 1}/${totalSteps}...`);
-
-          ctx.drawImage(video, 0, 0, width, height);
-
-          let faces: DetectedFace[] = [];
-          const shouldRunDetection = !settings.videoFrameSkip || stepIdx % 2 === 0 || previousFaces.length === 0;
-
-          if (shouldRunDetection) {
-            faces = await detectFaces(canvas, settings.ageThreshold);
-            previousFaces = faces;
-            totalFacesDetected += faces.length;
-            totalFacesMasked += faces.filter((f) => f.shouldMask).length;
-          } else {
-            faces = previousFaces;
-          }
-
-          applyAnonymization(canvas, faces, settings);
-
-          // Pacing delay: ensures canvas.captureStream produces real frames for MediaRecorder
-          await new Promise((r) => setTimeout(r, frameIntervalMs));
-          await yieldToEventLoop(settings.videoEcoMode ? 15 : 5);
-        }
-
-        // Finalize recording
-        const finalBlob = await new Promise<Blob>((resolve) => {
-          mediaRecorder.onstop = () => {
-            resolve(new Blob(chunks, { type: mimeType.split(';')[0] }));
-          };
-          mediaRecorder.stop();
-        });
-
-        canvas.width = 0;
-        canvas.height = 0;
-
-        return {
-          blob: finalBlob,
-          facesDetected: totalFacesDetected,
-          facesMasked: totalFacesMasked,
-          dimensions: { width, height },
-        };
-      } finally {
-        if (video.parentNode) {
-          video.parentNode.removeChild(video);
-        }
-        URL.revokeObjectURL(videoUrl);
-      }
-    },
-    [detectFaces, settings]
-  );
-
-  /**
    * Process a single video item:
    * 1. Decodes frames natively via HTML5 Video element (hardware accelerated, 0 WASM decoding overhead)
    * 2. Detects & anonymizes faces per frame with AI
@@ -378,28 +212,11 @@ export function useMediaProcessor() {
     ): Promise<{ blob: Blob; facesDetected: number; facesMasked: number; dimensions?: { width: number; height: number } }> => {
       onProgress(5, 'Initialisation du lecteur matériel...');
       const videoUrl = URL.createObjectURL(item.file);
-      const video = document.createElement('video');
-      video.src = videoUrl;
-      video.muted = true;
-      video.playsInline = true;
-      video.crossOrigin = 'anonymous';
-
-      // Attach offscreen so browser decoders (Firefox/WebKit) activate full GPU decoding
-      video.style.position = 'fixed';
-      video.style.top = '-9999px';
-      video.style.left = '-9999px';
-      video.style.width = '1px';
-      video.style.height = '1px';
-      video.style.opacity = '0';
-      video.style.pointerEvents = 'none';
-      document.body.appendChild(video);
+      // Must stay inside the viewport: Firefox suspends decoding of off-screen videos (→ black frames)
+      const video = createDecodingVideo(videoUrl);
 
       try {
-        await new Promise<void>((resolve, reject) => {
-          video.onloadedmetadata = () => resolve();
-          video.onerror = () => reject(new Error('Format vidéo non lisible par le navigateur.'));
-          setTimeout(resolve, 3000);
-        });
+        await prepareVideo(video);
 
         const originalWidth = video.videoWidth || 640;
         const originalHeight = video.videoHeight || 480;
@@ -453,6 +270,7 @@ export function useMediaProcessor() {
         let totalFacesDetected = 0;
         let totalFacesMasked = 0;
         let previousFaces: DetectedFace[] = [];
+        let blackFrames = 0;
 
         // 2. Frame-by-frame seeking, face detection, and anonymization
         for (let stepIdx = 0; stepIdx < totalSteps; stepIdx++) {
@@ -461,21 +279,19 @@ export function useMediaProcessor() {
           }
 
           const t = stepIdx * step;
-          video.currentTime = t;
-
-          await new Promise<void>((res) => {
-            const onSeeked = () => {
-              video.removeEventListener('seeked', onSeeked);
-              res();
-            };
-            video.addEventListener('seeked', onSeeked);
-            setTimeout(res, 250);
-          });
-
           const percent = 15 + Math.round((stepIdx / totalSteps) * 65);
           onProgress(percent, `Traitement IA frame ${stepIdx + 1}/${totalSteps}...`);
 
-          ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
+          const gotFrame = await grabFrame(video, t, ctx, targetWidth, targetHeight);
+          if (!gotFrame) {
+            blackFrames++;
+            // Abort early instead of silently producing a black video
+            if (stepIdx >= 7 && blackFrames === stepIdx + 1) {
+              throw new Error(
+                'Le navigateur ne fournit que des images noires pour cette vidéo (décodeur matériel indisponible). Essayez Chrome ou réduisez la résolution.'
+              );
+            }
+          }
 
           // AI Face Detection (with frame-skipping optimization)
           let faces: DetectedFace[] = [];
@@ -509,6 +325,12 @@ export function useMediaProcessor() {
           }
 
           await yieldToEventLoop(settings.videoEcoMode ? 20 : 5);
+        }
+
+        if (blackFrames / totalSteps > 0.9) {
+          throw new Error(
+            `Échec du décodage : ${blackFrames}/${totalSteps} images noires renvoyées par le navigateur. Export annulé pour éviter une vidéo noire.`
+          );
         }
 
         let resultBlob: Blob;
@@ -659,18 +481,9 @@ export function useMediaProcessor() {
             dimensions: result.dimensions,
           });
         } else if (item.type === 'video') {
-          let result;
-          try {
-            result = await processVideoItem(item, (prog, msg) => {
-              updateItemState({ progress: prog, progressMessage: msg });
-            });
-          } catch (videoErr: unknown) {
-            console.warn('[SafeFace Zero] FFmpeg indisponible ou en échec, bascule automatique sur le lecteur natif matériel:', videoErr);
-            updateItemState({ progress: 15, progressMessage: 'Bascule vers le moteur natif matériel...' });
-            result = await processVideoNatively(item, (prog, msg) => {
-              updateItemState({ progress: prog, progressMessage: msg });
-            });
-          }
+          const result = await processVideoItem(item, (prog, msg) => {
+            updateItemState({ progress: prog, progressMessage: msg });
+          });
 
           const resUrl = URL.createObjectURL(result.blob);
           updateItemState({
@@ -707,7 +520,7 @@ export function useMediaProcessor() {
         setActiveItemId(null);
       }
     },
-    [queue, processImageItem, processVideoItem, processVideoNatively]
+    [queue, processImageItem, processVideoItem]
   );
 
   /**
