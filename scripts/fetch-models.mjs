@@ -25,6 +25,8 @@ if (!fs.existsSync(SAMPLES_DIR)) {
 const MODEL_FILES = [
   'tiny_face_detector_model-weights_manifest.json',
   'tiny_face_detector_model.bin',
+  'ssd_mobilenetv1_model-weights_manifest.json',
+  'ssd_mobilenetv1_model.bin',
   'age_gender_model-weights_manifest.json',
   'age_gender_model.bin',
   // Landmark models optional but useful if loaded

@@ -33,6 +33,8 @@ const modelsDir = path.join(projectRoot, 'public', 'models');
 const requiredModels = [
   'tiny_face_detector_model-weights_manifest.json',
   'tiny_face_detector_model.bin',
+  'ssd_mobilenetv1_model-weights_manifest.json',
+  'ssd_mobilenetv1_model.bin',
   'age_gender_model-weights_manifest.json',
   'age_gender_model.bin',
 ];

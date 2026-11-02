@@ -92,12 +92,19 @@ export function applyAnonymization(
       ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
       ctx.clip();
 
-      // Requested pixel size: creates large discrete mosaic blocks of exact size instead of smooth extrapolation
-      const pixelSize = Math.max(4, Math.round(settings.blurRadius || 30));
+      const requestedPixelSize = Math.max(4, Math.round(settings.blurRadius || 30));
+      // Ensure at least 4 blocks across the face so a single lip pixel does not dominate half the face with reddish artifacts
+      const minDimension = Math.min(w, h);
+      const effectivePixelSize = Math.max(4, Math.min(requestedPixelSize, Math.max(4, Math.round(minDimension / 4))));
 
-      // Calculate number of big mosaic blocks
-      const scaledW = Math.max(1, Math.round(w / pixelSize));
-      const scaledH = Math.max(1, Math.round(h / pixelSize));
+      // Snap coordinates to a global grid to prevent temporal flickering and dancing color blocks in videos
+      const gridX = Math.floor(x / effectivePixelSize) * effectivePixelSize;
+      const gridY = Math.floor(y / effectivePixelSize) * effectivePixelSize;
+      const gridW = Math.max(effectivePixelSize, Math.ceil((x + w - gridX) / effectivePixelSize) * effectivePixelSize);
+      const gridH = Math.max(effectivePixelSize, Math.ceil((y + h - gridY) / effectivePixelSize) * effectivePixelSize);
+
+      const scaledW = Math.max(1, Math.round(gridW / effectivePixelSize));
+      const scaledH = Math.max(1, Math.round(gridH / effectivePixelSize));
 
       const mosaicCanvas = document.createElement('canvas');
       mosaicCanvas.width = scaledW;
@@ -105,8 +112,10 @@ export function applyAnonymization(
       const mCtx = mosaicCanvas.getContext('2d');
 
       if (mCtx) {
+        mCtx.imageSmoothingEnabled = true;
+        mCtx.imageSmoothingQuality = 'medium';
         // Step 1: Downscale face region into low-res mosaic canvas
-        mCtx.drawImage(targetCanvas, x, y, w, h, 0, 0, scaledW, scaledH);
+        mCtx.drawImage(targetCanvas, gridX, gridY, gridW, gridH, 0, 0, scaledW, scaledH);
 
         // Step 2: Upscale back with nearest-neighbor interpolation to render sharp, big pixels
         const prevSmoothing = ctx.imageSmoothingEnabled;
@@ -115,7 +124,7 @@ export function applyAnonymization(
         (ctx as unknown as { webkitImageSmoothingEnabled?: boolean }).webkitImageSmoothingEnabled = false;
         (ctx as unknown as { msImageSmoothingEnabled?: boolean }).msImageSmoothingEnabled = false;
 
-        ctx.drawImage(mosaicCanvas, 0, 0, scaledW, scaledH, x, y, w, h);
+        ctx.drawImage(mosaicCanvas, 0, 0, scaledW, scaledH, gridX, gridY, gridW, gridH);
 
         ctx.imageSmoothingEnabled = prevSmoothing;
       }

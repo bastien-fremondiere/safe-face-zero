@@ -319,12 +319,12 @@ export function useMediaProcessor() {
           applyAnonymization(canvas, faces, settings);
 
           if (ffmpeg) {
-            // Convert frame to JPEG buffer for FFmpeg
+            // Convert frame to PNG buffer for FFmpeg (lossless RGB24, avoids JPEG yuvj420p chroma shift & reddish pixel artifacts)
             const frameBlob: Blob = await new Promise((res, rej) => {
-              canvas.toBlob((b) => (b ? res(b) : rej(new Error('Blob conversion failed'))), 'image/jpeg', 0.88);
+              canvas.toBlob((b) => (b ? res(b) : rej(new Error('Blob conversion failed'))), 'image/png');
             });
             const frameBuf = new Uint8Array(await frameBlob.arrayBuffer());
-            const frameFileName = `out_${String(stepIdx + 1).padStart(5, '0')}.jpg`;
+            const frameFileName = `out_${String(stepIdx + 1).padStart(5, '0')}.png`;
             await ffmpeg.writeFile(frameFileName, frameBuf);
           } else {
             // Keep in memory if falling back
@@ -356,7 +356,7 @@ export function useMediaProcessor() {
             '-framerate',
             `${targetFps}`,
             '-i',
-            'out_%05d.jpg',
+            'out_%05d.png',
             '-c:v',
             'libx264',
             '-preset',
@@ -367,6 +367,8 @@ export function useMediaProcessor() {
             settings.videoEcoMode ? '28' : '24',
             '-pix_fmt',
             'yuv420p',
+            '-movflags',
+            '+faststart',
             outputName,
           ];
 
@@ -382,7 +384,7 @@ export function useMediaProcessor() {
           // Virtual FS Cleanup
           await ffmpeg.deleteFile(outputName).catch(() => {});
           for (let i = 1; i <= totalSteps; i++) {
-            const fName = `out_${String(i).padStart(5, '0')}.jpg`;
+            const fName = `out_${String(i).padStart(5, '0')}.png`;
             await ffmpeg.deleteFile(fName).catch(() => {});
           }
         } else {

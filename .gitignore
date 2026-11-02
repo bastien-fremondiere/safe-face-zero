@@ -34,3 +34,11 @@ public/models/*
 !public/models/.gitkeep
 public/ffmpeg/*
 !public/ffmpeg/.gitkeep
+
+# User test media (private, do not commit)
+private-media/
+*.mp4
+*.webm
+*.mov
+!public/samples/*.mp4
+!public/samples/*.webm

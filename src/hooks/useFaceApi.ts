@@ -23,13 +23,17 @@ export function useFaceApi() {
         const MODEL_URL = `${assetBase}models`;
         console.log('[SafeFace Zero] Initializing Face-API models from:', MODEL_URL);
 
-        // Load TinyFaceDetector and AgeGenderNet
+        // Load SSD MobileNetV1, TinyFaceDetector and AgeGenderNet
         await Promise.all([
+          faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL).catch((err) => {
+            console.warn('[SafeFace Zero] SSD MobileNetV1 non disponible, utilisation exclusive de TinyFaceDetector:', err);
+          }),
           faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
           faceapi.nets.ageGenderNet.loadFromUri(MODEL_URL),
         ]);
 
         if (isMounted) {
+          (window as unknown as { faceapi?: typeof faceapi }).faceapi = faceapi;
           setIsModelLoaded(true);
           console.log('[SafeFace Zero] Face-API models loaded successfully.');
         }
@@ -65,15 +69,42 @@ export function useFaceApi() {
         throw new Error("Les modèles d'intelligence artificielle ne sont pas encore chargés.");
       }
 
-      // Fast TinyFaceDetector options
-      const detectorOptions = new faceapi.TinyFaceDetectorOptions({
-        inputSize: 416,
-        scoreThreshold: 0.35,
-      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let detections: any[] = [];
 
-      const detections = await faceapi
-        .detectAllFaces(input, detectorOptions)
-        .withAgeAndGender();
+      // 1. High-accuracy detection with SSD MobileNetV1 (critical for group shots, small/distant faces, costumes)
+      if (faceapi.nets.ssdMobilenetv1.isLoaded) {
+        try {
+          detections = await faceapi
+            .detectAllFaces(input, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.2 }))
+            .withAgeAndGender();
+        } catch (ssdErr) {
+          console.warn('[SafeFace Zero] Erreur SSD MobileNetV1, bascule vers TinyFaceDetector:', ssdErr);
+        }
+      }
+
+      // 2. Fallback / complementary detection with TinyFaceDetector if 0 faces found
+      if (detections.length === 0 && faceapi.nets.tinyFaceDetector.isLoaded) {
+        const inputWidth =
+          'naturalWidth' in input
+            ? input.naturalWidth
+            : 'videoWidth' in input
+            ? input.videoWidth
+            : input.width;
+
+        let inputSize = 416;
+        if (inputWidth >= 1200) inputSize = 608;
+        else if (inputWidth >= 800) inputSize = 512;
+
+        const detectorOptions = new faceapi.TinyFaceDetectorOptions({
+          inputSize,
+          scoreThreshold: 0.25,
+        });
+
+        detections = await faceapi
+          .detectAllFaces(input, detectorOptions)
+          .withAgeAndGender();
+      }
 
       return detections.map((det) => {
         const age = Math.round(det.age);
