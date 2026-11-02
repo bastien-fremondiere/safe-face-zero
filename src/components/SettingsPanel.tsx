@@ -90,7 +90,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
               {t('settings.ageThresholdTitle')}
             </label>
             <span className="rounded-md bg-blue-500/20 px-2.5 py-0.5 text-xs font-bold text-blue-300 border border-blue-500/30">
-              {t('settings.ageYears', { age: settings.ageThreshold })}
+              {settings.ageThreshold >= 99 ? t('settings.ageAll') : t('settings.ageYears', { age: settings.ageThreshold })}
             </span>
           </div>
 
@@ -103,7 +103,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
             <input
               type="range"
               min="3"
-              max="25"
+              max="99"
               step="1"
               value={settings.ageThreshold}
               onChange={(e) => onUpdate({ ageThreshold: Number(e.target.value) })}
@@ -118,7 +118,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
               { label: t('settings.presetToddlers'), value: 10 },
               { label: t('settings.presetTeens'), value: 16 },
               { label: t('settings.presetMinors'), value: 18 },
-              { label: t('settings.presetAll'), value: 25 },
+              { label: t('settings.presetAll'), value: 99 },
             ].map((preset) => (
               <button
                 key={preset.value}

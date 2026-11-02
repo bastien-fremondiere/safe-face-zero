@@ -12,7 +12,7 @@ export type WatermarkPosition =
   | 'center';
 
 export interface AnonymizationSettings {
-  ageThreshold: number; // 3 to 25, default 16
+  ageThreshold: number; // 3 to 99 (>=99 means all ages), default 18
   maskMode: MaskMode; // 'blur' | 'logo' | 'hybrid'
   blurRadius: number; // 10 to 60, default 30
   facePadding: number; // 0 to 50 percent, default 15
