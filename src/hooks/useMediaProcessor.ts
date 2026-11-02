@@ -42,7 +42,7 @@ const DEFAULT_SETTINGS: AnonymizationSettings = {
   videoEcoMode: deviceProfile.isLowEnd,
   videoMaxResolution: deviceProfile.isLowEnd ? '720p' : 'original',
   videoFps: 0, // 0 = Cadence d'origine (Auto, no artificial FPS limit)
-  videoFrameSkip: deviceProfile.isLowEnd,
+  videoFrameSkip: true, // Interpolate 1 frame out of 2 with temporal tracking for 2x faster processing without loss of smoothness
   videoTracking: true, // Temporal face tracking across frames to eliminate flickering
 };
 
@@ -319,7 +319,8 @@ export function useMediaProcessor() {
           const percent = 15 + Math.round((stepIdx / totalSteps) * 65);
           onProgress(percent, `Traitement IA frame ${stepIdx + 1}/${totalSteps} (${targetFps} fps)...`);
 
-          const gotFrame = await grabFrame(video, t, ctx, targetWidth, targetHeight);
+          const shouldCheckBlack = stepIdx < 4 || stepIdx % 45 === 0;
+          const gotFrame = await grabFrame(video, t, ctx, targetWidth, targetHeight, shouldCheckBlack);
           if (!gotFrame) {
             blackFrames++;
             // Abort early only if the video decoder repeatedly delivers solid black beyond the intro
@@ -332,8 +333,11 @@ export function useMediaProcessor() {
 
           // AI Face Detection (with frame-skipping optimization if enabled)
           let rawFaces: DetectedFace[] = [];
+          const skipInterval = targetFps >= 24 ? 2 : 1;
           const shouldRunDetection =
-            !settings.videoFrameSkip || stepIdx % 2 === 0 || tracker.activeTrackCount === 0;
+            !settings.videoFrameSkip ||
+            stepIdx % skipInterval === 0 ||
+            tracker.activeTrackCount === 0;
 
           if (shouldRunDetection) {
             rawFaces = await detectFaces(canvas, settings.ageThreshold);
@@ -359,12 +363,12 @@ export function useMediaProcessor() {
           applyAnonymization(canvas, faces, settings);
 
           if (ffmpeg) {
-            // Convert frame to PNG buffer for FFmpeg (lossless RGB24, avoids JPEG yuvj420p chroma shift & reddish pixel artifacts)
+            // Convert frame to fast JPEG buffer for FFmpeg (libjpeg-turbo SIMD accelerated, 10x faster than PNG)
             const frameBlob: Blob = await new Promise((res, rej) => {
-              canvas.toBlob((b) => (b ? res(b) : rej(new Error('Blob conversion failed'))), 'image/png');
+              canvas.toBlob((b) => (b ? res(b) : rej(new Error('Blob conversion failed'))), 'image/jpeg', 0.94);
             });
             const frameBuf = new Uint8Array(await frameBlob.arrayBuffer());
-            const frameFileName = `out_${String(stepIdx + 1).padStart(5, '0')}.png`;
+            const frameFileName = `out_${String(stepIdx + 1).padStart(5, '0')}.jpg`;
             await ffmpeg.writeFile(frameFileName, frameBuf);
           } else {
             // Keep in memory if falling back
@@ -396,7 +400,7 @@ export function useMediaProcessor() {
             '-framerate',
             `${targetFps}`,
             '-i',
-            'out_%05d.png',
+            'out_%05d.jpg',
             '-c:v',
             'libx264',
             '-preset',
@@ -404,7 +408,7 @@ export function useMediaProcessor() {
             '-tune',
             'fastdecode',
             '-crf',
-            settings.videoEcoMode ? '28' : '24',
+            settings.videoEcoMode ? '28' : '23',
             '-pix_fmt',
             'yuv420p',
             '-movflags',
@@ -424,7 +428,7 @@ export function useMediaProcessor() {
           // Virtual FS Cleanup
           await ffmpeg.deleteFile(outputName).catch(() => {});
           for (let i = 1; i <= totalSteps; i++) {
-            const fName = `out_${String(i).padStart(5, '0')}.png`;
+            const fName = `out_${String(i).padStart(5, '0')}.jpg`;
             await ffmpeg.deleteFile(fName).catch(() => {});
           }
         } else {

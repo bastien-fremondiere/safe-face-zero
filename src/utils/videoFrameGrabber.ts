@@ -162,12 +162,14 @@ export async function grabFrame(
   t: number,
   ctx: CanvasRenderingContext2D,
   width: number,
-  height: number
+  height: number,
+  checkBlack = false
 ): Promise<boolean> {
   await seekTo(video, t);
-  ctx.fillStyle = '#000000';
-  ctx.fillRect(0, 0, width, height);
   ctx.drawImage(video, 0, 0, width, height);
+
+  // Skip heavy ReadPixels GPU stall unless explicit validation is requested (first few frames or periodic check)
+  if (!checkBlack) return true;
   if (!isCanvasBlack(ctx.canvas)) return true;
 
   for (let attempt = 0; attempt < 2; attempt++) {

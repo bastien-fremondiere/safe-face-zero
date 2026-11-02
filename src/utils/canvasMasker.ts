@@ -120,10 +120,12 @@ export function applyAnonymization(
       // Snap coordinates to a global grid to prevent temporal flickering and dancing color blocks in videos
       const gridX = Math.max(0, Math.min(canvasWidth - 1, Math.floor(x / effectivePixelSize) * effectivePixelSize));
       const gridY = Math.max(0, Math.min(canvasHeight - 1, Math.floor(y / effectivePixelSize) * effectivePixelSize));
-      const gridW = Math.max(effectivePixelSize, Math.min(canvasWidth - gridX, Math.ceil((x + w - gridX) / effectivePixelSize) * effectivePixelSize));
-      const gridH = Math.max(effectivePixelSize, Math.min(canvasHeight - gridY, Math.ceil((y + h - gridY) / effectivePixelSize) * effectivePixelSize));
+      const availW = Math.max(1, canvasWidth - gridX);
+      const availH = Math.max(1, canvasHeight - gridY);
+      const gridW = Math.min(availW, Math.max(1, Math.ceil((x + w - gridX) / effectivePixelSize) * effectivePixelSize));
+      const gridH = Math.min(availH, Math.max(1, Math.ceil((y + h - gridY) / effectivePixelSize) * effectivePixelSize));
 
-      if (gridW > 0 && gridH > 0) {
+      if (gridW > 0 && gridH > 0 && targetCanvas.width > 0 && targetCanvas.height > 0) {
         const scaledW = Math.max(1, Math.round(gridW / effectivePixelSize));
         const scaledH = Math.max(1, Math.round(gridH / effectivePixelSize));
 

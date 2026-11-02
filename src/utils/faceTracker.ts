@@ -123,7 +123,7 @@ export class FaceTracker {
     const centerDist = Math.hypot(cTrackX - cDetX, cTrackY - cDetY);
 
     // Dynamic search radius allowing fast camera rotation / pan displacement
-    const searchRadius = Math.max(55, maxDim * 2.5);
+    const searchRadius = Math.max(70, maxDim * 2.8);
     const normDist = centerDist / searchRadius;
 
     const areaTrack = track.predictedBox.width * track.predictedBox.height;
@@ -311,8 +311,9 @@ export class FaceTracker {
       ) {
         return false;
       }
-      // Adaptive coast limit: transient faces (visible for 1-2 frames) don't linger in empty air
-      const coastLimit = t.totalHits >= 3 ? this.maxCoastingFrames : Math.min(2, t.totalHits);
+      // Adaptive coast limit: even a face briefly seen for 1 frame gets at least 5 frames (~160ms) of coasting
+      // so fast camera rotation and brief motion blur don't drop the tracking mask abruptly.
+      const coastLimit = t.totalHits >= 3 ? this.maxCoastingFrames : Math.max(5, Math.round(this.fps * 0.25));
       return t.missedFrames <= coastLimit;
     });
 
