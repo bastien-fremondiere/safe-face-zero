@@ -58,3 +58,16 @@ export function detectDeviceProfile(): DeviceProfile {
 export function yieldToEventLoop(ms = 0): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+/**
+ * Safely resolves the absolute base URL for public assets (models, ffmpeg, samples)
+ * Handles subpath deployments (like GitHub Pages /safe-face-zero/) even without trailing slash.
+ */
+export function getAssetBaseUrl(): string {
+  if (typeof window === 'undefined') return './';
+  let path = window.location.pathname;
+  if (!path.endsWith('/')) {
+    path = path + '/';
+  }
+  return `${window.location.origin}${path}`;
+}

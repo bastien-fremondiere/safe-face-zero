@@ -2,6 +2,12 @@
 <html lang="fr" class="dark">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      // Ensure trailing slash for GitHub Pages repo path so relative links and assets never 404
+      if (window.location.pathname.endsWith('/safe-face-zero')) {
+        window.location.replace(window.location.pathname + '/' + window.location.search + window.location.hash);
+      }
+    </script>
     <script src="./coi-serviceworker.min.js"></script>
     <link rel="icon" type="image/svg+xml" href="./shield.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />

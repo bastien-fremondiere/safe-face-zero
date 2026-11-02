@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import * as faceapi from '@vladmandic/face-api';
 import { DetectedFace } from '../types';
+import { getAssetBaseUrl } from '../utils/performance';
 
 export function useFaceApi() {
   const [isModelLoaded, setIsModelLoaded] = useState(false);
@@ -18,10 +19,8 @@ export function useFaceApi() {
       setLoadError(null);
 
       try {
-        const baseUrl = import.meta.env.BASE_URL.endsWith('/')
-          ? import.meta.env.BASE_URL
-          : `${import.meta.env.BASE_URL}/`;
-        const MODEL_URL = `${baseUrl}models`;
+        const assetBase = getAssetBaseUrl();
+        const MODEL_URL = `${assetBase}models`;
         console.log('[SafeFace Zero] Initializing Face-API models from:', MODEL_URL);
 
         // Load TinyFaceDetector and AgeGenderNet

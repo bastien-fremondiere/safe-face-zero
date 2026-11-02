@@ -200,9 +200,138 @@ export function useMediaProcessor() {
   );
 
   /**
-   * Process a single video item via FFmpeg.wasm and face-api
-   * Optimized for Mobile and Low-End PCs (Anti-OOM & Anti-Freeze)
+   * Process a video natively via HTML5 Video, Canvas and MediaRecorder
+   * Ultra-fast, 0 MB WebAssembly download, 100% immune to WASM OOM on mobile.
    */
+  const processVideoNatively = useCallback(
+    async (
+      item: QueueItem,
+      onProgress: (progress: number, msg: string) => void
+    ): Promise<{ blob: Blob; facesDetected: number; facesMasked: number; dimensions?: { width: number; height: number } }> => {
+      onProgress(10, 'Initialisation du lecteur vidéo matériel...');
+      const videoUrl = URL.createObjectURL(item.file);
+      const video = document.createElement('video');
+      video.src = videoUrl;
+      video.muted = true;
+      video.playsInline = true;
+
+      await new Promise<void>((resolve, reject) => {
+        video.onloadedmetadata = () => resolve();
+        video.onerror = () => reject(new Error('Format vidéo non supporté nativement par le navigateur.'));
+      });
+
+      const duration = Math.min(video.duration || 4, 10);
+      let width = video.videoWidth || 640;
+      let height = video.videoHeight || 480;
+
+      // Downscale if needed to keep mobile rendering ultra-fast
+      const maxDim = settings.videoEcoMode ? 640 : 1280;
+      if (width > maxDim) {
+        height = Math.round((height * maxDim) / width);
+        width = maxDim;
+      }
+
+      // Ensure even dimensions
+      width = width % 2 === 0 ? width : width - 1;
+      height = height % 2 === 0 ? height : height - 1;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Impossible d’initialiser le contexte canvas.');
+
+      // Setup MediaRecorder from canvas stream
+      const targetFps = Math.max(6, Math.min(15, settings.videoFps || 8));
+      const stream = canvas.captureStream(targetFps);
+
+      let mimeType = 'video/webm;codecs=vp8';
+      if (MediaRecorder.isTypeSupported('video/mp4;codecs=avc1')) {
+        mimeType = 'video/mp4;codecs=avc1';
+      } else if (MediaRecorder.isTypeSupported('video/mp4')) {
+        mimeType = 'video/mp4';
+      } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) {
+        mimeType = 'video/webm;codecs=vp9';
+      }
+
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType,
+        videoBitsPerSecond: settings.videoEcoMode ? 800000 : 1500000,
+      });
+
+      const chunks: Blob[] = [];
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+
+      mediaRecorder.start();
+
+      let totalFacesDetected = 0;
+      let totalFacesMasked = 0;
+      let previousFaces: DetectedFace[] = [];
+
+      const step = 1 / targetFps;
+      const totalSteps = Math.ceil(duration / step);
+
+      for (let stepIdx = 0; stepIdx < totalSteps; stepIdx++) {
+        if (cancelProcessingRef.current) {
+          mediaRecorder.stop();
+          throw new Error('Traitement annulé par l’utilisateur.');
+        }
+
+        const t = stepIdx * step;
+        video.currentTime = t;
+
+        await new Promise<void>((res) => {
+          const onSeeked = () => {
+            video.removeEventListener('seeked', onSeeked);
+            res();
+          };
+          video.addEventListener('seeked', onSeeked);
+        });
+
+        const percent = 20 + Math.round((stepIdx / totalSteps) * 65);
+        onProgress(percent, `Traitement IA frame ${stepIdx + 1}/${totalSteps}...`);
+
+        ctx.drawImage(video, 0, 0, width, height);
+
+        let faces: DetectedFace[] = [];
+        const shouldRunDetection = !settings.videoFrameSkip || stepIdx % 2 === 0 || previousFaces.length === 0;
+
+        if (shouldRunDetection) {
+          faces = await detectFaces(canvas, settings.ageThreshold);
+          previousFaces = faces;
+          totalFacesDetected += faces.length;
+          totalFacesMasked += faces.filter((f) => f.shouldMask).length;
+        } else {
+          faces = previousFaces;
+        }
+
+        applyAnonymization(canvas, faces, settings);
+
+        await yieldToEventLoop(settings.videoEcoMode ? 25 : 5);
+      }
+
+      const finalBlob = await new Promise<Blob>((resolve) => {
+        mediaRecorder.onstop = () => {
+          resolve(new Blob(chunks, { type: mimeType.split(';')[0] }));
+        };
+        mediaRecorder.stop();
+      });
+
+      URL.revokeObjectURL(videoUrl);
+      canvas.width = 0;
+      canvas.height = 0;
+
+      return {
+        blob: finalBlob,
+        facesDetected: totalFacesDetected,
+        facesMasked: totalFacesMasked,
+        dimensions: { width, height },
+      };
+    },
+    [detectFaces, settings]
+  );
   const processVideoItem = useCallback(
     async (
       item: QueueItem,
@@ -415,9 +544,18 @@ export function useMediaProcessor() {
             dimensions: result.dimensions,
           });
         } else if (item.type === 'video') {
-          const result = await processVideoItem(item, (prog, msg) => {
-            updateItemState({ progress: prog, progressMessage: msg });
-          });
+          let result;
+          try {
+            result = await processVideoItem(item, (prog, msg) => {
+              updateItemState({ progress: prog, progressMessage: msg });
+            });
+          } catch (videoErr: unknown) {
+            console.warn('[SafeFace Zero] FFmpeg indisponible ou en échec, bascule automatique sur le lecteur natif matériel:', videoErr);
+            updateItemState({ progress: 15, progressMessage: 'Bascule vers le moteur natif matériel...' });
+            result = await processVideoNatively(item, (prog, msg) => {
+              updateItemState({ progress: prog, progressMessage: msg });
+            });
+          }
 
           const resUrl = URL.createObjectURL(result.blob);
           updateItemState({
@@ -432,7 +570,17 @@ export function useMediaProcessor() {
           });
         }
       } catch (err: unknown) {
-        const errorMsg = err instanceof Error ? err.message : 'Erreur inconnue lors du traitement.';
+        let errorMsg = 'Erreur lors du traitement.';
+        if (err instanceof Error) {
+          errorMsg = err.message;
+        } else if (typeof err === 'string') {
+          errorMsg = err;
+        } else if (typeof err === 'number') {
+          errorMsg = `Code d’erreur système: ${err}`;
+        } else if (err && typeof err === 'object') {
+          errorMsg = (err as { message?: string; error?: string }).message || (err as { error?: string }).error || JSON.stringify(err);
+        }
+
         console.error(`[SafeFace Zero] Erreur traitement ${item.name}:`, err);
         updateItemState({
           status: 'error',
@@ -444,7 +592,7 @@ export function useMediaProcessor() {
         setActiveItemId(null);
       }
     },
-    [queue, processImageItem, processVideoItem]
+    [queue, processImageItem, processVideoItem, processVideoNatively]
   );
 
   /**

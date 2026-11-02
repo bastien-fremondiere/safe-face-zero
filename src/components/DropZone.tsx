@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { UploadCloud, Image, Film, Archive, Sparkles, User, Users, Video } from 'lucide-react';
+import { getAssetBaseUrl } from '../utils/performance';
 
 interface DropZoneProps {
   onFilesAdded: (files: File[]) => void;
@@ -52,10 +53,8 @@ export const DropZone: React.FC<DropZoneProps> = ({ onFilesAdded, disabled }) =>
     if (disabled || isLoadingSample) return;
     setIsLoadingSample(true);
     try {
-      const baseUrl = import.meta.env.BASE_URL.endsWith('/')
-        ? import.meta.env.BASE_URL
-        : `${import.meta.env.BASE_URL}/`;
-      const url = `${baseUrl}samples/${sampleName}`;
+      const assetBase = getAssetBaseUrl();
+      const url = `${assetBase}samples/${sampleName}`;
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error(`Failed to load ${sampleName}`);

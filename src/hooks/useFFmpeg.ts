@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { toBlobURL } from '@ffmpeg/util';
+import { getAssetBaseUrl } from '../utils/performance';
 
 export function useFFmpeg() {
   const [isLoaded, setIsLoaded] = useState(false);
@@ -32,10 +33,10 @@ export function useFFmpeg() {
         })...`
       );
 
-      const baseUrl = import.meta.env.BASE_URL.endsWith('/')
-        ? import.meta.env.BASE_URL
-        : `${import.meta.env.BASE_URL}/`;
-      const ffmpegUrl = `${baseUrl}ffmpeg`;
+      const assetBase = getAssetBaseUrl();
+      const ffmpegUrl = `${assetBase}ffmpeg`;
+
+      console.log('[SafeFace Zero] Loading FFmpeg assets from:', ffmpegUrl);
 
       // Load single-threaded FFmpeg (fully deterministic, no pthread deadlock in headless environments)
       await ffmpeg.load({
