@@ -17,22 +17,30 @@ async function main() {
   const page = await browser.newPage();
   await page.goto('about:blank');
 
-  // Read sample-portrait.jpg as base64 to animate inside video
-  const imgData = fs.readFileSync(path.join(projectRoot, 'public', 'samples', 'sample-portrait.jpg')).toString('base64');
+  // Read test-child-single.jpg as base64 to animate inside video
+  const imgData = fs.readFileSync(path.join(projectRoot, 'public', 'samples', 'test-child-single.jpg')).toString('base64');
 
   const videoBase64 = await page.evaluate(async (b64Img) => {
     return new Promise((resolve) => {
       const img = new Image();
       img.src = `data:image/jpeg;base64,${b64Img}`;
       img.onload = () => {
+        // Pre-downscale image to lightweight thumbnail (200x200) to keep video encoding ultra-lean
+        const thumbCanvas = document.createElement('canvas');
+        thumbCanvas.width = 200;
+        thumbCanvas.height = 200;
+        const thumbCtx = thumbCanvas.getContext('2d');
+        thumbCtx.drawImage(img, 0, 0, 200, 200);
+
         const canvas = document.createElement('canvas');
         canvas.width = 480;
         canvas.height = 360;
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', { alpha: false });
 
         const stream = canvas.captureStream(10); // 10 fps
         const mediaRecorder = new MediaRecorder(stream, {
           mimeType: 'video/webm;codecs=vp8',
+          videoBitsPerSecond: 600000,
         });
         const chunks = [];
 
@@ -69,8 +77,8 @@ async function main() {
           const x = 50 + progress * 140;
           const y = 40 + Math.sin(progress * Math.PI) * 20;
 
-          // Draw the real human face from sample-portrait
-          ctx.drawImage(img, x, y, 220, 260);
+          // Draw the child face
+          ctx.drawImage(thumbCanvas, x, y, 200, 200);
 
           // Timestamp overlay
           ctx.fillStyle = '#38bdf8';

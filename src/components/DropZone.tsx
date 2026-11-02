@@ -188,34 +188,56 @@ export const DropZone: React.FC<DropZoneProps> = ({ onFilesAdded, disabled }) =>
             <button
               type="button"
               disabled={disabled || isLoadingSample}
-              onClick={() => handleLoadSampleFile('sample-portrait.jpg', 'portrait_ado_test.jpg', 'image/jpeg')}
+              onClick={() => handleLoadSampleFile('test-child-single.jpg', 'enfant_7ans.jpg', 'image/jpeg')}
               className="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-50 px-2.5 py-1 text-xs font-medium text-slate-200 border border-slate-700 transition-colors"
-              title="Tester avec un portrait individuel"
+              title="1 Enfant seul (7 ans) -> 1 flou attendu"
             >
               <User className="h-3 w-3 text-blue-400" />
-              Photo Portrait
+              1 Enfant (7 ans)
             </button>
 
             <button
               type="button"
               disabled={disabled || isLoadingSample}
-              onClick={() => handleLoadSampleFile('sample-group.jpg', 'groupe_enfants_test.jpg', 'image/jpeg')}
+              onClick={() => handleLoadSampleFile('test-two-children.jpg', 'deux_enfants_ecole.jpg', 'image/jpeg')}
               className="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-50 px-2.5 py-1 text-xs font-medium text-slate-200 border border-slate-700 transition-colors"
-              title="Tester avec une photo de groupe d'enfants"
+              title="2 Enfants -> 2 flous attendus"
             >
               <Users className="h-3 w-3 text-emerald-400" />
-              Photo Groupe
+              2 Enfants (8-10 ans)
             </button>
 
             <button
               type="button"
               disabled={disabled || isLoadingSample}
-              onClick={() => handleLoadSampleFile('sample-face-walking.webm', 'video_visages_test.webm', 'video/webm')}
+              onClick={() => handleLoadSampleFile('test-adult-and-child.jpg', 'pere_et_fille.jpg', 'image/jpeg')}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-amber-950/40 hover:bg-amber-900/50 border border-amber-500/40 disabled:opacity-50 px-2.5 py-1 text-xs font-medium text-amber-200 transition-colors"
+              title="Père & Fille -> 1 seul flou (enfant) et adulte préservé"
+            >
+              <User className="h-3 w-3 text-amber-400" />
+              Père & Fille (Mixte)
+            </button>
+
+            <button
+              type="button"
+              disabled={disabled || isLoadingSample}
+              onClick={() => handleLoadSampleFile('test-teacher-and-students.jpg', 'classe_prof_et_eleves.jpg', 'image/jpeg')}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-50 px-2.5 py-1 text-xs font-medium text-slate-200 border border-slate-700 transition-colors"
+              title="1 Professeure + 3 Élèves -> 3 flous et 1 adulte préservé"
+            >
+              <Users className="h-3 w-3 text-indigo-400" />
+              Classe (1 Prof + 3 Élèves)
+            </button>
+
+            <button
+              type="button"
+              disabled={disabled || isLoadingSample}
+              onClick={() => handleLoadSampleFile('sample-face-walking.webm', 'video_enfant_anime.webm', 'video/webm')}
               className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-950/60 hover:bg-indigo-900/70 border border-indigo-500/40 disabled:opacity-50 px-2.5 py-1 text-xs font-semibold text-indigo-200 transition-colors"
-              title="Tester avec un clip vidéo"
+              title="Vidéo avec enfant en mouvement"
             >
               <Video className="h-3 w-3 text-indigo-400" />
-              Clip Vidéo (WebM/MP4)
+              Clip Vidéo (WebM)
             </button>
           </div>
         </div>
