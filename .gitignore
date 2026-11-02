@@ -37,6 +37,7 @@ public/ffmpeg/*
 
 # User test media (private, do not commit)
 private-media/
+local-tools/
 *.mp4
 *.webm
 *.mov
