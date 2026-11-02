@@ -1,10 +1,25 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execSync } from 'node:child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '..');
+
+// Ensure assets are synchronized if missing
+const checkModels = path.join(projectRoot, 'public', 'models', 'tiny_face_detector_model.bin');
+const checkFFmpeg = path.join(projectRoot, 'public', 'ffmpeg', 'ffmpeg-core.js');
+
+if (!fs.existsSync(checkModels) || !fs.existsSync(checkFFmpeg)) {
+  console.log('[SafeFace Zero] Assets locaux manquants, synchronisation via scripts/fetch-models.mjs ...');
+  try {
+    execSync('node scripts/fetch-models.mjs', { cwd: projectRoot, stdio: 'inherit' });
+    console.log('');
+  } catch (err) {
+    console.error('[ERREUR] Impossible d’exécuter fetch-models.mjs :', err.message);
+  }
+}
 
 console.log('================================================================');
 console.log('   SafeFace Zero — Audit de Confidentialité & Zero-Server');

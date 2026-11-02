@@ -9,6 +9,7 @@
     "prebuild": "node scripts/fetch-models.mjs",
     "build": "tsc && vite build",
     "preview": "vite preview",
+    "precheck:zero-server": "node scripts/fetch-models.mjs",
     "check:zero-server": "node scripts/verify-zero-server.mjs"
   },
   "dependencies": {
