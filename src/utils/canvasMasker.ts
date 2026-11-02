@@ -85,28 +85,39 @@ export function applyAnonymization(
     const radiusX = w / 2;
     const radiusY = h / 2;
 
-    // 1. BLUR or HYBRID (Blur portion)
+    // 1. PIXEL BLUR / MOSAIC (Pixelation) or HYBRID
     if (settings.maskMode === 'blur' || settings.maskMode === 'hybrid') {
       ctx.save();
       ctx.beginPath();
       ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
       ctx.clip();
 
-      // Create an offscreen canvas for the blurred region to optimize and prevent edge bleeding
-      const blurCanvas = document.createElement('canvas');
-      blurCanvas.width = Math.max(1, Math.ceil(w));
-      blurCanvas.height = Math.max(1, Math.ceil(h));
-      const bCtx = blurCanvas.getContext('2d');
+      // Requested pixel size: creates large discrete mosaic blocks of exact size instead of smooth extrapolation
+      const pixelSize = Math.max(4, Math.round(settings.blurRadius || 30));
 
-      if (bCtx) {
-        // Draw the unblurred area into offscreen
-        bCtx.drawImage(targetCanvas, x, y, w, h, 0, 0, w, h);
+      // Calculate number of big mosaic blocks
+      const scaledW = Math.max(1, Math.round(w / pixelSize));
+      const scaledH = Math.max(1, Math.round(h / pixelSize));
 
-        // Render blurred with filter
-        ctx.filter = `blur(${Math.max(1, settings.blurRadius)}px)`;
-        // Draw slightly enlarged to ensure soft edges blend well inside clip
-        ctx.drawImage(blurCanvas, x - 5, y - 5, w + 10, h + 10);
-        ctx.filter = 'none';
+      const mosaicCanvas = document.createElement('canvas');
+      mosaicCanvas.width = scaledW;
+      mosaicCanvas.height = scaledH;
+      const mCtx = mosaicCanvas.getContext('2d');
+
+      if (mCtx) {
+        // Step 1: Downscale face region into low-res mosaic canvas
+        mCtx.drawImage(targetCanvas, x, y, w, h, 0, 0, scaledW, scaledH);
+
+        // Step 2: Upscale back with nearest-neighbor interpolation to render sharp, big pixels
+        const prevSmoothing = ctx.imageSmoothingEnabled;
+        ctx.imageSmoothingEnabled = false;
+        (ctx as unknown as { mozImageSmoothingEnabled?: boolean }).mozImageSmoothingEnabled = false;
+        (ctx as unknown as { webkitImageSmoothingEnabled?: boolean }).webkitImageSmoothingEnabled = false;
+        (ctx as unknown as { msImageSmoothingEnabled?: boolean }).msImageSmoothingEnabled = false;
+
+        ctx.drawImage(mosaicCanvas, 0, 0, scaledW, scaledH, x, y, w, h);
+
+        ctx.imageSmoothingEnabled = prevSmoothing;
       }
 
       ctx.restore();

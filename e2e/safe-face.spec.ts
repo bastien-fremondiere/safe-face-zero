@@ -49,8 +49,8 @@ test.describe('SafeFace Zero - Suite de Tests E2E', () => {
     const queueItem = page.locator('text=enfant_7ans.jpg');
     await expect(queueItem).toBeVisible();
 
-    // Adjust blur slider in settings to 50px using preset button
-    const presetFort = page.getByRole('button', { name: /50px \(Fort\)/i });
+    // Adjust pixel size slider in settings to 50px using preset button
+    const presetFort = page.getByRole('button', { name: /50px \(Gros\)/i });
     await expect(presetFort).toBeVisible();
     await presetFort.click();
     await expect(page.getByText('50 px')).toBeVisible();
@@ -70,8 +70,8 @@ test.describe('SafeFace Zero - Suite de Tests E2E', () => {
     await expect(page.getByText('Slider Diff 50%')).toBeVisible();
     await expect(page.getByText('AVANT (ORIGINAL)')).toBeVisible();
     await expect(page.getByText('APRÈS (ANONYMISÉ)')).toBeVisible();
-    await expect(page.locator('text=Flou :')).toContainText('50 px');
-    await expect(page.getByRole('button', { name: /Appliquer ce flou/i })).toBeVisible();
+    await expect(page.locator('text=Pixels :')).toContainText('50 px');
+    await expect(page.getByRole('button', { name: /Appliquer/i })).toBeVisible();
 
     // Take screenshot of 50% slider diff with 50px blur
     await page.waitForTimeout(500);
