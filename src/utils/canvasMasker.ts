@@ -183,32 +183,29 @@ function drawEmojiSticker(
   ry: number,
   isHybrid: boolean
 ) {
-  const r = Math.min(rx, ry) * (isHybrid ? 0.78 : 0.95);
-  const fontSize = Math.max(12, Math.round(r * 1.55));
+  const r = Math.min(rx, ry) * (isHybrid ? 0.85 : 0.98);
+  const fontSize = Math.max(14, Math.round(r * 1.65));
 
   ctx.save();
-
-  // In hybrid mode, draw a soft circular contrast backdrop so the emoji pops over the pixel blur
-  if (isHybrid) {
-    ctx.beginPath();
-    ctx.arc(cx, cy, r * 0.88, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.45)';
-    ctx.fill();
-    ctx.lineWidth = Math.max(1, r * 0.05);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
-    ctx.stroke();
-  }
+  ctx.globalAlpha = 1.0;
+  ctx.fillStyle = '#000000';
 
   ctx.font = `${fontSize}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Twemoji", sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  // Drop shadow for 3D depth and readability
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.65)';
-  ctx.shadowBlur = Math.max(2, r * 0.15);
+  // Pass 1: Crisp drop shadow for separation from the pixel blur background
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+  ctx.shadowBlur = Math.max(4, r * 0.22);
   ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = Math.max(1, r * 0.06);
+  ctx.shadowOffsetY = Math.max(1, r * 0.08);
+  ctx.fillText(emoji, cx, cy);
 
+  // Pass 2: Draw on top with 100% solid, full-colored opacity without shadow bleed
+  ctx.shadowColor = 'transparent';
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
   ctx.fillText(emoji, cx, cy);
 
   ctx.restore();
