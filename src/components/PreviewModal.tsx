@@ -273,7 +273,7 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
               </div>
             )}
 
-            {item.type === 'image' && onReprocess && (
+            {onReprocess && (
               <button
                 type="button"
                 disabled={isProcessing}

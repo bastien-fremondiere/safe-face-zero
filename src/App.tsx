@@ -15,6 +15,7 @@ export const App: React.FC = () => {
     queue,
     settings,
     isProcessing,
+    hasSettingsChanged,
     activeItemId,
     isModelLoaded,
     isModelLoading,
@@ -27,6 +28,7 @@ export const App: React.FC = () => {
     clearQueue,
     processItem,
     processAll,
+    reprocessAll,
     cancelProcessing,
     exportAllAsZip,
   } = useMediaProcessor();
@@ -111,8 +113,10 @@ export const App: React.FC = () => {
               queue={queue}
               isProcessing={isProcessing}
               activeItemId={activeItemId}
+              hasSettingsChanged={hasSettingsChanged}
               onProcessItem={processItem}
               onProcessAll={processAll}
+              onReprocessAll={reprocessAll}
               onRemoveItem={removeFromQueue}
               onClearQueue={clearQueue}
               onCancelProcessing={cancelProcessing}

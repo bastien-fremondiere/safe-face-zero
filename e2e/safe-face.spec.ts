@@ -123,4 +123,44 @@ test.describe('SafeFace Zero - Suite de Tests E2E', () => {
     await page.waitForTimeout(400);
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '07-group-hybrid-side-by-side.png') });
   });
+
+  test('04. Re-traitement individuel et global lors de modifications de paramètres', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByText('Prêt (WebGL)')).toBeVisible({ timeout: 20000 });
+
+    // Ingest sample
+    const sampleBtn = page.getByRole('button', { name: /1 Enfant \(7 ans\)/i });
+    await sampleBtn.click();
+    await expect(page.locator('text=enfant_7ans.jpg')).toBeVisible();
+
+    // Process item
+    const processBtn = page.getByRole('button', { name: /Tout anonymiser/i });
+    await processBtn.click();
+    await expect(page.getByText('Succès')).toBeVisible({ timeout: 20000 });
+
+    // Item should now have a reprocess button
+    const reprocessItemBtn = page.getByTitle('Ré-anonymiser ce fichier');
+    await expect(reprocessItemBtn).toBeVisible();
+
+    // Global header should show "Tout ré-anonymiser (1)"
+    const reprocessAllBtn = page.getByRole('button', { name: /Tout ré-anonymiser/i });
+    await expect(reprocessAllBtn).toBeVisible();
+
+    // Now change settings (e.g. change age threshold to Petite enfance <= 10 ans)
+    const agePresetBtn = page.getByRole('button', { name: /Petite enfance/i });
+    await agePresetBtn.click();
+
+    // Settings-changed alert banner must be visible
+    await expect(page.getByText(/Paramètres modifiés/i)).toBeVisible();
+
+    // Re-process all via the banner action button
+    const bannerReprocessBtn = page.getByRole('button', { name: /Tout ré-anonymiser/i }).first();
+    await bannerReprocessBtn.click();
+
+    // Must re-complete successfully
+    await expect(page.getByText('Succès')).toBeVisible({ timeout: 20000 });
+
+    // Banner should disappear once reprocessed
+    await expect(page.getByText(/Paramètres modifiés/i)).not.toBeVisible();
+  });
 });

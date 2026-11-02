@@ -48,6 +48,7 @@ export function useMediaProcessor() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
   const [settings, setSettings] = useState<AnonymizationSettings>(DEFAULT_SETTINGS);
+  const [hasSettingsChanged, setHasSettingsChanged] = useState(false);
 
   const { isModelLoaded, isLoading: isModelLoading, loadError: modelError, detectFaces } = useFaceApi();
   const { isLoaded: isFFmpegLoaded, isLoading: isFFmpegLoading, error: ffmpegError, loadFFmpeg } = useFFmpeg();
@@ -59,7 +60,15 @@ export function useMediaProcessor() {
    * Update anonymization settings
    */
   const updateSettings = useCallback((partial: Partial<AnonymizationSettings>) => {
-    setSettings((prev) => ({ ...prev, ...partial }));
+    setSettings((prev) => {
+      const changed = Object.entries(partial).some(
+        ([key, val]) => (prev as unknown as Record<string, unknown>)[key] !== val
+      );
+      if (changed) {
+        setHasSettingsChanged(true);
+      }
+      return { ...prev, ...partial };
+    });
   }, []);
 
   /**
@@ -140,6 +149,7 @@ export function useMediaProcessor() {
       });
       return [];
     });
+    setHasSettingsChanged(false);
   }, []);
 
   /**
@@ -378,7 +388,24 @@ export function useMediaProcessor() {
         } else {
           // Native fallback with MediaRecorder using paced playback of processed frames
           onProgress(85, 'Génération vidéo native matérielle...');
-          const stream = canvas.captureStream(targetFps);
+
+          // Attach canvas to DOM inside a hidden container so mobile compositor (especially Firefox Gecko)
+          // keeps rendering frames to the captureStream track
+          const streamHolder = document.createElement('div');
+          Object.assign(streamHolder.style, {
+            position: 'fixed',
+            left: '-9999px',
+            bottom: '0',
+            width: '1px',
+            height: '1px',
+            overflow: 'hidden',
+            opacity: '0.01',
+            pointerEvents: 'none',
+            zIndex: '-1',
+          });
+          streamHolder.appendChild(canvas);
+          document.body.appendChild(streamHolder);
+
           let mimeType = 'video/webm;codecs=vp8';
           if (MediaRecorder.isTypeSupported('video/mp4;codecs=avc1')) {
             mimeType = 'video/mp4;codecs=avc1';
@@ -390,6 +417,9 @@ export function useMediaProcessor() {
             mimeType = 'video/webm';
           }
 
+          const stream = canvas.captureStream(targetFps);
+          const track = stream.getVideoTracks()[0] as (MediaStreamTrack & { requestFrame?: () => void }) | undefined;
+
           const mediaRecorder = new MediaRecorder(stream, {
             mimeType,
             videoBitsPerSecond: settings.videoEcoMode ? 1000000 : 2500000,
@@ -400,27 +430,52 @@ export function useMediaProcessor() {
             if (e.data && e.data.size > 0) chunks.push(e.data);
           };
 
-          mediaRecorder.start(500);
+          try {
+            mediaRecorder.start(250);
 
-          const frameDurationMs = Math.round(1000 / targetFps);
-          for (let i = 0; i < processedFrames.length; i++) {
-            const blob = processedFrames[i];
-            const url = URL.createObjectURL(blob);
-            try {
-              const img = await loadImage(url);
-              ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
-            } finally {
-              URL.revokeObjectURL(url);
+            const frameDurationMs = Math.round(1000 / targetFps);
+            for (let i = 0; i < processedFrames.length; i++) {
+              const blob = processedFrames[i];
+              const url = URL.createObjectURL(blob);
+              try {
+                const img = await loadImage(url);
+                ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+                if (track && typeof track.requestFrame === 'function') {
+                  track.requestFrame();
+                }
+              } finally {
+                URL.revokeObjectURL(url);
+              }
+              await new Promise((r) => setTimeout(r, frameDurationMs));
             }
-            await new Promise((r) => setTimeout(r, frameDurationMs));
-          }
 
-          resultBlob = await new Promise<Blob>((resolve) => {
-            mediaRecorder.onstop = () => {
-              resolve(new Blob(chunks, { type: mimeType.split(';')[0] }));
-            };
-            mediaRecorder.stop();
-          });
+            // Flush any buffered frame data
+            try {
+              if (mediaRecorder.state === 'recording') {
+                mediaRecorder.requestData();
+              }
+            } catch {
+              /* ignore */
+            }
+
+            await new Promise((r) => setTimeout(r, 150));
+
+            resultBlob = await new Promise<Blob>((resolve, reject) => {
+              mediaRecorder.onstop = () => {
+                const totalBytes = chunks.reduce((acc, c) => acc + c.size, 0);
+                if (totalBytes < 500) {
+                  reject(new Error('Échec de la capture vidéo native (flux vide).'));
+                  return;
+                }
+                resolve(new Blob(chunks, { type: mimeType.split(';')[0] }));
+              };
+              mediaRecorder.stop();
+            });
+          } finally {
+            if (streamHolder.parentNode) {
+              streamHolder.parentNode.removeChild(streamHolder);
+            }
+          }
         }
 
         canvas.width = 0;
@@ -457,11 +512,29 @@ export function useMediaProcessor() {
       cancelProcessingRef.current = false;
       setActiveItemId(id);
 
+      // Clean up previous result URL to prevent browser memory leaks on mobile
+      if (item.resultUrl) {
+        try {
+          URL.revokeObjectURL(item.resultUrl);
+        } catch {
+          /* ignore */
+        }
+      }
+
       const updateItemState = (updates: Partial<QueueItem>) => {
         setQueue((prev) => prev.map((q) => (q.id === id ? { ...q, ...updates } : q)));
       };
 
-      updateItemState({ status: 'processing', progress: 0, progressMessage: 'Démarrage...' });
+      updateItemState({
+        status: 'processing',
+        progress: 0,
+        progressMessage: 'Démarrage...',
+        resultBlob: undefined,
+        resultUrl: undefined,
+        facesDetected: undefined,
+        facesMasked: undefined,
+        error: undefined,
+      });
 
       try {
         if (item.type === 'image') {
@@ -524,14 +597,35 @@ export function useMediaProcessor() {
   );
 
   /**
-   * Process all pending items sequentially
+   * Reprocess all items in the queue (or re-run after settings modification)
    */
-  const processAll = useCallback(async () => {
+  const reprocessAll = useCallback(async () => {
     setIsProcessing(true);
+    setHasSettingsChanged(false);
     cancelProcessingRef.current = false;
 
-    // Snapshot of items that are not done
+    const itemsToProcess = [...queue];
+    for (const item of itemsToProcess) {
+      if (cancelProcessingRef.current) break;
+      await processItem(item.id);
+    }
+
+    setIsProcessing(false);
+  }, [queue, processItem]);
+
+  /**
+   * Process pending items sequentially, or re-process all if all are already done
+   */
+  const processAll = useCallback(async () => {
     const pendingItems = queue.filter((i) => i.status !== 'done');
+    if (pendingItems.length === 0 && queue.length > 0) {
+      await reprocessAll();
+      return;
+    }
+
+    setIsProcessing(true);
+    setHasSettingsChanged(false);
+    cancelProcessingRef.current = false;
 
     for (const item of pendingItems) {
       if (cancelProcessingRef.current) break;
@@ -539,7 +633,7 @@ export function useMediaProcessor() {
     }
 
     setIsProcessing(false);
-  }, [queue, processItem]);
+  }, [queue, processItem, reprocessAll]);
 
   /**
    * Export all processed items as a single ZIP archive
@@ -570,6 +664,7 @@ export function useMediaProcessor() {
     queue,
     settings,
     isProcessing,
+    hasSettingsChanged,
     activeItemId,
     isModelLoaded,
     isModelLoading,
@@ -583,6 +678,7 @@ export function useMediaProcessor() {
     clearQueue,
     processItem,
     processAll,
+    reprocessAll,
     cancelProcessing,
     exportAllAsZip,
   };

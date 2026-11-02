@@ -25,8 +25,10 @@ interface MediaQueueProps {
   queue: QueueItem[];
   isProcessing: boolean;
   activeItemId: string | null;
+  hasSettingsChanged?: boolean;
   onProcessItem: (id: string) => void;
   onProcessAll: () => void;
+  onReprocessAll?: () => void;
   onRemoveItem: (id: string) => void;
   onClearQueue: () => void;
   onExportZip: () => void;
@@ -38,8 +40,10 @@ export const MediaQueue: React.FC<MediaQueueProps> = ({
   queue,
   isProcessing,
   activeItemId,
+  hasSettingsChanged = false,
   onProcessItem,
   onProcessAll,
+  onReprocessAll,
   onRemoveItem,
   onClearQueue,
   onExportZip,
@@ -79,6 +83,24 @@ export const MediaQueue: React.FC<MediaQueueProps> = ({
 
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 md:p-6 shadow-xl backdrop-blur-sm">
+      {/* Settings changed alert banner */}
+      {hasSettingsChanged && hasCompletedItems && !isProcessing && (
+        <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-950/30 p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2.5 text-amber-200">
+            <RotateCcw className="h-4 w-4 text-amber-400 shrink-0" />
+            <span>{t('queue.settingsChangedNotice')}</span>
+          </div>
+          <button
+            type="button"
+            onClick={onReprocessAll || onProcessAll}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-amber-200 font-semibold px-3 py-1.5 transition-colors cursor-pointer shrink-0"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            {t('queue.settingsChangedAction')}
+          </button>
+        </div>
+      )}
+
       {/* Header with global actions */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
         <div>
@@ -108,7 +130,7 @@ export const MediaQueue: React.FC<MediaQueueProps> = ({
             </button>
           )}
 
-          {pendingCount > 0 && (
+          {pendingCount > 0 ? (
             <button
               type="button"
               disabled={isProcessing}
@@ -127,6 +149,18 @@ export const MediaQueue: React.FC<MediaQueueProps> = ({
                 </>
               )}
             </button>
+          ) : (
+            hasCompletedItems && !isProcessing && (
+              <button
+                type="button"
+                onClick={onReprocessAll || onProcessAll}
+                className="inline-flex items-center gap-2 rounded-xl bg-blue-600/25 hover:bg-blue-600/40 border border-blue-500/40 text-blue-200 font-semibold text-xs px-4 py-2.5 transition-all cursor-pointer shadow-md shadow-blue-600/10"
+                title={t('queue.reprocessAll', { count: queue.length })}
+              >
+                <RotateCcw className="h-4 w-4" />
+                {t('queue.reprocessAll', { count: queue.length })}
+              </button>
+            )
           )}
 
           {hasCompletedItems && (
@@ -263,8 +297,30 @@ export const MediaQueue: React.FC<MediaQueueProps> = ({
                       </button>
                     )}
 
+                    {item.status === 'error' && !isProcessing && (
+                      <button
+                        type="button"
+                        onClick={() => onProcessItem(item.id)}
+                        className="rounded-lg bg-slate-800 hover:bg-blue-900/60 hover:text-blue-300 p-2 text-slate-300 transition-colors cursor-pointer border border-slate-700"
+                        title={t('queue.retry')}
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+
                     {item.status === 'done' && (
                       <>
+                        {!isProcessing && (
+                          <button
+                            type="button"
+                            onClick={() => onProcessItem(item.id)}
+                            className="rounded-lg bg-slate-800 hover:bg-amber-900/60 hover:text-amber-300 p-2 text-slate-300 transition-colors cursor-pointer border border-slate-700"
+                            title={t('queue.reprocessOne')}
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+
                         {item.type !== 'zip' && (
                           <button
                             type="button"
