@@ -35,25 +35,30 @@ export function useFFmpeg() {
         })...`
       );
 
+      const baseUrl = import.meta.env.BASE_URL.endsWith('/')
+        ? import.meta.env.BASE_URL
+        : `${import.meta.env.BASE_URL}/`;
+      const ffmpegUrl = `${baseUrl}ffmpeg`;
+
       if (isMultiThreadSupported) {
         try {
           await ffmpeg.load({
-            coreURL: await toBlobURL('/ffmpeg/ffmpeg-core.js', 'text/javascript'),
-            wasmURL: await toBlobURL('/ffmpeg/ffmpeg-core.wasm', 'application/wasm'),
-            workerURL: await toBlobURL('/ffmpeg/ffmpeg-core.worker.js', 'text/javascript'),
+            coreURL: await toBlobURL(`${ffmpegUrl}/ffmpeg-core.js`, 'text/javascript'),
+            wasmURL: await toBlobURL(`${ffmpegUrl}/ffmpeg-core.wasm`, 'application/wasm'),
+            workerURL: await toBlobURL(`${ffmpegUrl}/ffmpeg-core.worker.js`, 'text/javascript'),
           });
           console.log('[SafeFace Zero] Multithreaded FFmpeg loaded.');
         } catch (mtErr) {
           console.warn('[SafeFace Zero] Multithreaded load failed, falling back to single-threaded:', mtErr);
           await ffmpeg.load({
-            coreURL: await toBlobURL('/ffmpeg/st/ffmpeg-core.js', 'text/javascript'),
-            wasmURL: await toBlobURL('/ffmpeg/st/ffmpeg-core.wasm', 'application/wasm'),
+            coreURL: await toBlobURL(`${ffmpegUrl}/st/ffmpeg-core.js`, 'text/javascript'),
+            wasmURL: await toBlobURL(`${ffmpegUrl}/st/ffmpeg-core.wasm`, 'application/wasm'),
           });
         }
       } else {
         await ffmpeg.load({
-          coreURL: await toBlobURL('/ffmpeg/st/ffmpeg-core.js', 'text/javascript'),
-          wasmURL: await toBlobURL('/ffmpeg/st/ffmpeg-core.wasm', 'application/wasm'),
+          coreURL: await toBlobURL(`${ffmpegUrl}/st/ffmpeg-core.js`, 'text/javascript'),
+          wasmURL: await toBlobURL(`${ffmpegUrl}/st/ffmpeg-core.wasm`, 'application/wasm'),
         });
         console.log('[SafeFace Zero] Single-threaded FFmpeg loaded.');
       }

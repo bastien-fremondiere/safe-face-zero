@@ -114,6 +114,14 @@ async function prepareFFmpeg() {
       }
     }
   }
+
+  // Copy coi-serviceworker for GitHub Pages cross-origin isolation
+  const coiSrc = path.join(projectRoot, 'node_modules', 'coi-serviceworker', 'coi-serviceworker.min.js');
+  const coiDst = path.join(projectRoot, 'public', 'coi-serviceworker.min.js');
+  if (fs.existsSync(coiSrc) && !fs.existsSync(coiDst)) {
+    fs.copyFileSync(coiSrc, coiDst);
+    console.log('[safe-face-zero] COOP/COEP Service Worker synced to public/coi-serviceworker.min.js');
+  }
 }
 
 async function main() {

@@ -26,22 +26,20 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: safe-face-zero/package.json
 
       - name: Install dependencies
-        run: |
-          cd safe-face-zero
-          npm ci
+        run: npm ci
+
+      - name: Audit Zero-Server
+        run: npm run check:zero-server
 
       - name: Build
-        run: |
-          cd safe-face-zero
-          npm run build
+        run: npm run build
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: safe-face-zero/dist
+          path: dist
 
   deploy:
     environment:

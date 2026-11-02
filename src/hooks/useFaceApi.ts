@@ -18,7 +18,10 @@ export function useFaceApi() {
       setLoadError(null);
 
       try {
-        const MODEL_URL = '/models';
+        const baseUrl = import.meta.env.BASE_URL.endsWith('/')
+          ? import.meta.env.BASE_URL
+          : `${import.meta.env.BASE_URL}/`;
+        const MODEL_URL = `${baseUrl}models`;
         console.log('[SafeFace Zero] Initializing Face-API models from:', MODEL_URL);
 
         // Load TinyFaceDetector and AgeGenderNet
