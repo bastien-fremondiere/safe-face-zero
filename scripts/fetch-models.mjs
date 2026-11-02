@@ -9,6 +9,7 @@ const projectRoot = path.resolve(__dirname, '..');
 
 const MODELS_DIR = path.join(projectRoot, 'public', 'models');
 const FFMPEG_DIR = path.join(projectRoot, 'public', 'ffmpeg');
+const SAMPLES_DIR = path.join(projectRoot, 'public', 'samples');
 
 // Ensure directories exist
 if (!fs.existsSync(MODELS_DIR)) {
@@ -16,6 +17,9 @@ if (!fs.existsSync(MODELS_DIR)) {
 }
 if (!fs.existsSync(FFMPEG_DIR)) {
   fs.mkdirSync(FFMPEG_DIR, { recursive: true });
+}
+if (!fs.existsSync(SAMPLES_DIR)) {
+  fs.mkdirSync(SAMPLES_DIR, { recursive: true });
 }
 
 const MODEL_FILES = [
@@ -124,10 +128,30 @@ async function prepareFFmpeg() {
   }
 }
 
+async function prepareSamples() {
+  console.log('[safe-face-zero] Syncing test sample images & videos to public/samples/ ...');
+  const demoDir = path.join(projectRoot, 'node_modules', '@vladmandic', 'face-api', 'demo');
+  if (fs.existsSync(demoDir)) {
+    const samples = [
+      { src: 'sample1.jpg', dst: 'sample-portrait.jpg' },
+      { src: 'sample2.jpg', dst: 'sample-teen.jpg' },
+      { src: 'sample3.jpg', dst: 'sample-group.jpg' },
+    ];
+    for (const item of samples) {
+      const srcPath = path.join(demoDir, item.src);
+      const dstPath = path.join(SAMPLES_DIR, item.dst);
+      if (fs.existsSync(srcPath) && !fs.existsSync(dstPath)) {
+        fs.copyFileSync(srcPath, dstPath);
+      }
+    }
+  }
+}
+
 async function main() {
   try {
     await prepareModels();
     await prepareFFmpeg();
+    await prepareSamples();
     console.log('[safe-face-zero] Assets successfully synchronized.');
   } catch (error) {
     console.error('[safe-face-zero] Asset sync error:', error);

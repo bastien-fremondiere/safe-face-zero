@@ -240,14 +240,16 @@ export const MediaQueue: React.FC<MediaQueueProps> = ({
 
                     {item.status === 'done' && (
                       <>
-                        <button
-                          type="button"
-                          onClick={() => onOpenPreview(item)}
-                          className="rounded-lg bg-slate-800 hover:bg-slate-700 p-2 text-slate-200 transition-colors cursor-pointer"
-                          title="Aperçu & Comparaison"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                        </button>
+                        {item.type !== 'zip' && (
+                          <button
+                            type="button"
+                            onClick={() => onOpenPreview(item)}
+                            className="rounded-lg bg-slate-800 hover:bg-blue-900/60 hover:text-blue-300 p-2 text-slate-200 transition-colors cursor-pointer border border-slate-700"
+                            title="Aperçu Comparatif (Slider Avant/Après)"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                          </button>
+                        )}
 
                         <button
                           type="button"
