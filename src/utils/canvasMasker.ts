@@ -132,31 +132,34 @@ export function applyAnonymization(
       ctx.restore();
     }
 
-    // 2. LOGO or HYBRID (Logo portion)
+    // 2. LOGO, EMOJI or HYBRID (Emoji / Logo portion)
     if (settings.maskMode === 'logo' || settings.maskMode === 'hybrid') {
+      const isHybrid = settings.maskMode === 'hybrid';
       const logoImg = settings.faceLogoImage;
-      ctx.save();
 
-      // In pure logo mode, clip to ellipse so square image fits face naturally
-      ctx.beginPath();
-      ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
-      ctx.clip();
-
-      if (logoImg && logoImg.complete && logoImg.naturalWidth > 0) {
-        if (settings.maskMode === 'hybrid') {
-          // Centered sticker covering 75% of face over the blur
+      if (settings.selectedEmoji) {
+        let emojiToDraw = settings.selectedEmoji;
+        if (emojiToDraw === 'random') {
+          const hash = Math.abs(Math.round(centerX * 31 + centerY * 17)) % FUN_EMOJIS.length;
+          emojiToDraw = FUN_EMOJIS[hash];
+        }
+        drawEmojiSticker(ctx, emojiToDraw, centerX, centerY, radiusX, radiusY, isHybrid);
+      } else if (logoImg && logoImg.complete && logoImg.naturalWidth > 0) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
+        ctx.clip();
+        if (isHybrid) {
           const subW = w * 0.75;
           const subH = h * 0.75;
           ctx.drawImage(logoImg, centerX - subW / 2, centerY - subH / 2, subW, subH);
         } else {
           ctx.drawImage(logoImg, x, y, w, h);
         }
+        ctx.restore();
       } else {
-        // Draw fallback shield/face privacy sticker
-        drawFallbackSticker(ctx, centerX, centerY, radiusX, radiusY, settings.maskMode === 'hybrid');
+        drawFallbackSticker(ctx, centerX, centerY, radiusX, radiusY, isHybrid);
       }
-
-      ctx.restore();
     }
   }
 
@@ -164,6 +167,51 @@ export function applyAnonymization(
   if (settings.watermarkEnabled) {
     applyWatermark(ctx, canvasWidth, canvasHeight, settings);
   }
+}
+
+const FUN_EMOJIS = ['😎', '😀', '🥳', '🤩', '😇', '🤠', '🎃', '👻', '🎭', '🐱', '🐶', '🦊', '🐼', '🦁', '🦄', '🤖', '🚀', '⭐', '🎈'];
+
+/**
+ * Draws an emoji centered over the face with a subtle backdrop disc in hybrid mode
+ */
+function drawEmojiSticker(
+  ctx: CanvasRenderingContext2D,
+  emoji: string,
+  cx: number,
+  cy: number,
+  rx: number,
+  ry: number,
+  isHybrid: boolean
+) {
+  const r = Math.min(rx, ry) * (isHybrid ? 0.78 : 0.95);
+  const fontSize = Math.max(12, Math.round(r * 1.55));
+
+  ctx.save();
+
+  // In hybrid mode, draw a soft circular contrast backdrop so the emoji pops over the pixel blur
+  if (isHybrid) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * 0.88, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.45)';
+    ctx.fill();
+    ctx.lineWidth = Math.max(1, r * 0.05);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+    ctx.stroke();
+  }
+
+  ctx.font = `${fontSize}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Twemoji", sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  // Drop shadow for 3D depth and readability
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.65)';
+  ctx.shadowBlur = Math.max(2, r * 0.15);
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = Math.max(1, r * 0.06);
+
+  ctx.fillText(emoji, cx, cy);
+
+  ctx.restore();
 }
 
 /**

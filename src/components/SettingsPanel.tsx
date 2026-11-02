@@ -11,10 +11,12 @@ import {
   Cpu,
   Smartphone,
   Zap,
+  Smile,
 } from 'lucide-react';
 import { AnonymizationSettings, WatermarkPosition } from '../types';
 import { loadImage } from '../utils/canvasMasker';
 import { detectDeviceProfile } from '../utils/performance';
+import { EmojiPickerMenu } from './EmojiPickerMenu';
 import { useI18n } from '../i18n/I18nContext';
 
 interface SettingsPanelProps {
@@ -278,49 +280,91 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
           )}
 
           {(settings.maskMode === 'logo' || settings.maskMode === 'hybrid') && (
-            <div className="mt-4 pt-3 border-t border-slate-700/50">
-              <span className="text-xs text-slate-300 font-medium block mb-2">
-                {t('settings.stickerTitle')}
-              </span>
-              <div className="flex items-center gap-3">
-                {settings.faceLogoUrl ? (
-                  <div className="relative h-12 w-12 rounded-lg border border-slate-600 overflow-hidden bg-slate-950 flex items-center justify-center">
-                    <img
-                      src={settings.faceLogoUrl}
-                      alt="Sticker visage"
-                      className="h-full w-full object-contain"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleRemoveLogo}
-                      title={t('settings.stickerDelete')}
-                      className="absolute inset-0 bg-red-600/80 text-white opacity-0 hover:opacity-100 flex items-center justify-center transition-opacity"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="h-12 w-12 rounded-lg border border-dashed border-slate-600 bg-slate-800/40 flex items-center justify-center text-slate-500 text-xs text-center p-1">
-                    {t('settings.stickerDefault')}
-                  </div>
-                )}
+            <div className="mt-4 pt-3 border-t border-slate-700/50 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-slate-200 font-semibold flex items-center gap-1.5">
+                  <Smile className="h-4 w-4 text-amber-400" />
+                  {t('settings.stickerOrEmojiTitle')}
+                </span>
 
-                <input
-                  ref={logoInputRef}
-                  type="file"
-                  accept="image/png,image/svg+xml,image/jpeg,image/webp"
-                  onChange={handleLogoUpload}
-                  className="hidden"
-                />
-
-                <button
-                  type="button"
-                  onClick={() => logoInputRef.current?.click()}
-                  className="rounded-lg bg-slate-700 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-600 transition-colors"
-                >
-                  {settings.faceLogoUrl ? t('settings.stickerReplace') : t('settings.stickerUpload')}
-                </button>
+                {/* Switch between Emoji and Custom Image */}
+                <div className="flex items-center gap-1 bg-slate-900 p-0.5 rounded-lg border border-slate-800 text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!settings.selectedEmoji) onUpdate({ selectedEmoji: '😎' });
+                    }}
+                    className={`px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
+                      settings.selectedEmoji
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    🎭 {t('settings.tabEmoji')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onUpdate({ selectedEmoji: null })}
+                    className={`px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
+                      !settings.selectedEmoji
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    🖼️ {t('settings.tabCustomLogo')}
+                  </button>
+                </div>
               </div>
+
+              {settings.selectedEmoji ? (
+                /* Selectable & Searchable Emoji Menu */
+                <EmojiPickerMenu
+                  selectedEmoji={settings.selectedEmoji}
+                  onSelectEmoji={(emoji) => onUpdate({ selectedEmoji: emoji })}
+                  isHybrid={settings.maskMode === 'hybrid'}
+                />
+              ) : (
+                /* Custom Image Logo Upload */
+                <div className="flex items-center gap-3">
+                  {settings.faceLogoUrl ? (
+                    <div className="relative h-12 w-12 rounded-lg border border-slate-600 overflow-hidden bg-slate-950 flex items-center justify-center">
+                      <img
+                        src={settings.faceLogoUrl}
+                        alt="Sticker visage"
+                        className="h-full w-full object-contain"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleRemoveLogo}
+                        title={t('settings.stickerDelete')}
+                        className="absolute inset-0 bg-red-600/80 text-white opacity-0 hover:opacity-100 flex items-center justify-center transition-opacity"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="h-12 w-12 rounded-lg border border-dashed border-slate-600 bg-slate-800/40 flex items-center justify-center text-slate-500 text-xs text-center p-1">
+                      {t('settings.stickerDefault')}
+                    </div>
+                  )}
+
+                  <input
+                    ref={logoInputRef}
+                    type="file"
+                    accept="image/png,image/svg+xml,image/jpeg,image/webp"
+                    onChange={handleLogoUpload}
+                    className="hidden"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => logoInputRef.current?.click()}
+                    className="rounded-lg bg-slate-700 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-600 transition-colors cursor-pointer"
+                  >
+                    {settings.faceLogoUrl ? t('settings.stickerReplace') : t('settings.stickerUpload')}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

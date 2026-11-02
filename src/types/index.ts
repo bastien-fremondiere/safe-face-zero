@@ -16,6 +16,7 @@ export interface AnonymizationSettings {
   maskMode: MaskMode; // 'blur' | 'logo' | 'hybrid'
   blurRadius: number; // 10 to 60, default 30
   facePadding: number; // 0 to 50 percent, default 15
+  selectedEmoji: string | null; // e.g. '😎', '🎃', 'random' or null
   faceLogoUrl: string | null;
   faceLogoImage: HTMLImageElement | null;
   watermarkEnabled: boolean;

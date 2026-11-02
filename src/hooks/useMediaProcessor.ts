@@ -29,6 +29,7 @@ const DEFAULT_SETTINGS: AnonymizationSettings = {
   maskMode: 'blur',
   blurRadius: 30,
   facePadding: 15,
+  selectedEmoji: '😎',
   faceLogoUrl: null,
   faceLogoImage: null,
   watermarkEnabled: false,
