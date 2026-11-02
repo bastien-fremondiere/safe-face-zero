@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 test('Diagnostiquer le traitement vidéo MP4', async ({ page }) => {
-  test.setTimeout(120000);
+  test.setTimeout(300000);
 
   page.on('console', (msg) => {
     console.log('[BrowserConsole]', msg.type(), msg.text());

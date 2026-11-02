@@ -140,8 +140,7 @@ export function applyAnonymization(
       if (settings.selectedEmoji) {
         let emojiToDraw = settings.selectedEmoji;
         if (emojiToDraw === 'random') {
-          const hash = Math.abs(Math.round(centerX * 31 + centerY * 17)) % FUN_EMOJIS.length;
-          emojiToDraw = FUN_EMOJIS[hash];
+          emojiToDraw = face.assignedEmoji || FUN_EMOJIS[Math.abs(Math.round(centerX * 31 + centerY * 17)) % FUN_EMOJIS.length];
         }
         drawEmojiSticker(ctx, emojiToDraw, centerX, centerY, radiusX, radiusY, isHybrid);
       } else if (logoImg && logoImg.complete && logoImg.naturalWidth > 0) {

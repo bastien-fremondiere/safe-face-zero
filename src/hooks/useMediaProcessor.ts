@@ -18,7 +18,8 @@ import {
   getFileCategory,
 } from '../utils/zipHandler';
 import { detectDeviceProfile, yieldToEventLoop } from '../utils/performance';
-import { createDecodingVideo, prepareVideo, grabFrame } from '../utils/videoFrameGrabber';
+import { createDecodingVideo, prepareVideo, grabFrame, detectVideoFps } from '../utils/videoFrameGrabber';
+import { FaceTracker } from '../utils/faceTracker';
 
 const saveAs = (fileSaver as unknown as { saveAs?: typeof fileSaver }).saveAs || fileSaver;
 
@@ -39,9 +40,10 @@ const DEFAULT_SETTINGS: AnonymizationSettings = {
   watermarkOpacity: 80,
   watermarkScale: 15,
   videoEcoMode: deviceProfile.isLowEnd,
-  videoMaxResolution: deviceProfile.isLowEnd ? '480p' : '720p',
-  videoFps: 8,
+  videoMaxResolution: deviceProfile.isLowEnd ? '720p' : 'original',
+  videoFps: 0, // 0 = Cadence d'origine (Auto, no artificial FPS limit)
   videoFrameSkip: deviceProfile.isLowEnd,
+  videoTracking: true, // Temporal face tracking across frames to eliminate flickering
 };
 
 export function useMediaProcessor() {
@@ -234,31 +236,47 @@ export function useMediaProcessor() {
         const originalDuration = video.duration || 4;
 
         // 1. Calculate target dimensions divisible by 2 for H.264
-        let maxDim = 1280; // default 720p
-        if (settings.videoEcoMode || settings.videoMaxResolution === '480p') {
-          maxDim = 640;
-        } else if (settings.videoMaxResolution === '1080p') {
-          maxDim = 1920;
-        }
-
         let targetWidth = originalWidth;
         let targetHeight = originalHeight;
-        if (targetWidth > maxDim || targetHeight > maxDim) {
-          if (targetWidth >= targetHeight) {
-            targetHeight = Math.round((originalHeight * maxDim) / targetWidth);
-            targetWidth = maxDim;
-          } else {
-            targetWidth = Math.round((originalWidth * maxDim) / targetHeight);
-            targetHeight = maxDim;
+
+        if (settings.videoMaxResolution !== 'original') {
+          let maxDim = 1280; // default 720p
+          if (settings.videoEcoMode || settings.videoMaxResolution === '480p') {
+            maxDim = 640;
+          } else if (settings.videoMaxResolution === '720p') {
+            maxDim = 1280;
+          } else if (settings.videoMaxResolution === '1080p') {
+            maxDim = 1920;
+          }
+
+          if (targetWidth > maxDim || targetHeight > maxDim) {
+            if (targetWidth >= targetHeight) {
+              targetHeight = Math.round((originalHeight * maxDim) / targetWidth);
+              targetWidth = maxDim;
+            } else {
+              targetWidth = Math.round((originalWidth * maxDim) / targetHeight);
+              targetHeight = maxDim;
+            }
           }
         }
+
         targetWidth = targetWidth - (targetWidth % 2);
         targetHeight = targetHeight - (targetHeight % 2);
         if (targetWidth < 2) targetWidth = 2;
         if (targetHeight < 2) targetHeight = 2;
 
-        const targetFps = Math.max(6, Math.min(15, settings.videoFps || 8));
-        const maxDuration = settings.videoEcoMode ? Math.min(originalDuration, 10) : Math.min(originalDuration, 30);
+        // Target FPS: Cadence should match the original video (or user custom setting without arbitrary 15 fps limit)
+        let targetFps = settings.videoFps;
+        if (!targetFps || targetFps <= 0) {
+          onProgress(7, 'Détection de la cadence originale de la vidéo...');
+          const sourceFps = await detectVideoFps(item.file);
+          targetFps = Math.max(1, Math.min(60, Math.round(sourceFps)));
+        }
+
+        // Duration: Do not limit duration unless Eco Mode is explicitly active for low-memory devices
+        const maxDuration = settings.videoEcoMode
+          ? Math.min(originalDuration, 30)
+          : originalDuration;
         const step = 1 / targetFps;
         const totalSteps = Math.max(1, Math.ceil(maxDuration / step));
 
@@ -267,6 +285,9 @@ export function useMediaProcessor() {
         canvas.height = targetHeight;
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         if (!ctx) throw new Error('Impossible d’initialiser le contexte canvas.');
+
+        // Initialize temporal face tracker to eliminate flickering ("clignotant")
+        const tracker = new FaceTracker({ fps: targetFps });
 
         // Initialize FFmpeg for re-encoding
         onProgress(10, 'Initialisation du moteur d’encodage...');
@@ -291,7 +312,7 @@ export function useMediaProcessor() {
 
           const t = stepIdx * step;
           const percent = 15 + Math.round((stepIdx / totalSteps) * 65);
-          onProgress(percent, `Traitement IA frame ${stepIdx + 1}/${totalSteps}...`);
+          onProgress(percent, `Traitement IA frame ${stepIdx + 1}/${totalSteps} (${targetFps} fps)...`);
 
           const gotFrame = await grabFrame(video, t, ctx, targetWidth, targetHeight);
           if (!gotFrame) {
@@ -304,18 +325,31 @@ export function useMediaProcessor() {
             }
           }
 
-          // AI Face Detection (with frame-skipping optimization)
-          let faces: DetectedFace[] = [];
-          const shouldRunDetection = !settings.videoFrameSkip || stepIdx % 2 === 0 || previousFaces.length === 0;
+          // AI Face Detection (with frame-skipping optimization if enabled)
+          let rawFaces: DetectedFace[] = [];
+          const shouldRunDetection =
+            !settings.videoFrameSkip || stepIdx % 2 === 0 || tracker.activeTrackCount === 0;
 
           if (shouldRunDetection) {
-            faces = await detectFaces(canvas, settings.ageThreshold);
-            previousFaces = faces;
-            totalFacesDetected += faces.length;
-            totalFacesMasked += faces.filter((f) => f.shouldMask).length;
-          } else {
-            faces = previousFaces;
+            rawFaces = await detectFaces(canvas, settings.ageThreshold);
           }
+
+          // Temporal Face Tracking & Stabilization: eliminates the "clignotant" effect
+          const faces = settings.videoTracking
+            ? tracker.update(
+                rawFaces,
+                targetWidth,
+                targetHeight,
+                settings.ageThreshold,
+                !shouldRunDetection
+              )
+            : shouldRunDetection
+            ? rawFaces
+            : previousFaces;
+
+          previousFaces = faces;
+          totalFacesDetected += faces.length;
+          totalFacesMasked += faces.filter((f) => f.shouldMask).length;
 
           applyAnonymization(canvas, faces, settings);
 

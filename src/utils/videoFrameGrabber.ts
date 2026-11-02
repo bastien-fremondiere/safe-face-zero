@@ -174,3 +174,137 @@ export async function grabFrame(
   }
   return false;
 }
+
+interface Mp4Box {
+  type: string;
+  dataOffset: number;
+  end: number;
+}
+
+function parseBoxes(dv: DataView, startOffset: number, endOffset: number): Mp4Box[] {
+  const boxes: Mp4Box[] = [];
+  let offset = startOffset;
+  while (offset + 8 <= endOffset) {
+    const size = dv.getUint32(offset);
+    let type = '';
+    for (let i = 0; i < 4; i++) {
+      type += String.fromCharCode(dv.getUint8(offset + 4 + i));
+    }
+    const is64 = size === 1;
+    const realSize = is64
+      ? Number(dv.getBigUint64(offset + 8))
+      : size === 0
+      ? endOffset - offset
+      : size;
+    const headerLen = is64 ? 16 : 8;
+    if (realSize < headerLen || offset + realSize > endOffset) break;
+    boxes.push({ type, dataOffset: offset + headerLen, end: offset + realSize });
+    offset += realSize;
+  }
+  return boxes;
+}
+
+function extractFpsFromMp4DataView(dv: DataView): number | null {
+  const len = dv.byteLength;
+  let pos = 0;
+  while (pos + 8 <= len) {
+    const size = dv.getUint32(pos);
+    let type = '';
+    for (let i = 0; i < 4; i++) {
+      type += String.fromCharCode(dv.getUint8(pos + 4 + i));
+    }
+    const is64 = size === 1;
+    const realSize = is64 ? Number(dv.getBigUint64(pos + 8)) : size === 0 ? len - pos : size;
+    const headerLen = is64 ? 16 : 8;
+    if (realSize < headerLen || pos + realSize > len) break;
+
+    if (type === 'moov') {
+      const traks = parseBoxes(dv, pos + headerLen, pos + realSize).filter((b) => b.type === 'trak');
+      for (const trak of traks) {
+        const mdias = parseBoxes(dv, trak.dataOffset, trak.end).filter((b) => b.type === 'mdia');
+        for (const mdia of mdias) {
+          const mdiaBoxes = parseBoxes(dv, mdia.dataOffset, mdia.end);
+          const hdlr = mdiaBoxes.find((b) => b.type === 'hdlr');
+          let isVideo = false;
+          if (hdlr && hdlr.end - hdlr.dataOffset >= 12) {
+            let subtype = '';
+            for (let i = 0; i < 4; i++) {
+              subtype += String.fromCharCode(dv.getUint8(hdlr.dataOffset + 8 + i));
+            }
+            isVideo = subtype === 'vide';
+          }
+          if (isVideo) {
+            const mdhd = mdiaBoxes.find((b) => b.type === 'mdhd');
+            const minf = mdiaBoxes.find((b) => b.type === 'minf');
+            let timescale = 0;
+            if (mdhd) {
+              const version = dv.getUint8(mdhd.dataOffset);
+              timescale = dv.getUint32(mdhd.dataOffset + (version === 0 ? 12 : 20));
+            }
+            if (minf && timescale > 0) {
+              const minfBoxes = parseBoxes(dv, minf.dataOffset, minf.end);
+              const stbl = minfBoxes.find((b) => b.type === 'stbl');
+              if (stbl) {
+                const stblBoxes = parseBoxes(dv, stbl.dataOffset, stbl.end);
+                const stts = stblBoxes.find((b) => b.type === 'stts');
+                if (stts) {
+                  const entryCount = dv.getUint32(stts.dataOffset + 4);
+                  let totalFrames = 0;
+                  let totalTicks = 0;
+                  for (let i = 0; i < entryCount; i++) {
+                    const sc = dv.getUint32(stts.dataOffset + 8 + i * 8);
+                    const sd = dv.getUint32(stts.dataOffset + 12 + i * 8);
+                    totalFrames += sc;
+                    totalTicks += sc * sd;
+                  }
+                  if (totalTicks > 0) {
+                    return (totalFrames * timescale) / totalTicks;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    pos += realSize;
+  }
+  return null;
+}
+
+/**
+ * Detects the native framerate (FPS) of a video file directly in the browser.
+ * Reads MP4/MOV container metadata with 0 network calls and minimal memory footprint.
+ * Returns the exact framerate (e.g. 24, 25, 30, 60), defaulting to 30 fps if undetectable.
+ */
+export async function detectVideoFps(file?: File | Blob): Promise<number> {
+  if (!file) return 30;
+
+  try {
+    // 1. Try reading first 512 KB
+    const headSlice = file.slice(0, Math.min(file.size, 524288));
+    const headBuf = await headSlice.arrayBuffer();
+    let fps = extractFpsFromMp4DataView(new DataView(headBuf));
+
+    // 2. If moov is placed at the end of the file (common in camera MP4s), check last 1 MB
+    if (!fps && file.size > 524288) {
+      const tailOffset = Math.max(0, file.size - 1048576);
+      const tailSlice = file.slice(tailOffset);
+      const tailBuf = await tailSlice.arrayBuffer();
+      fps = extractFpsFromMp4DataView(new DataView(tailBuf));
+    }
+
+    if (fps && fps > 5 && fps < 125) {
+      // Snap to standard framerates when within delta
+      if (Math.abs(fps - 30) < 0.1 || Math.abs(fps - 29.97) < 0.05) return 30;
+      if (Math.abs(fps - 25) < 0.1) return 25;
+      if (Math.abs(fps - 24) < 0.1 || Math.abs(fps - 23.976) < 0.05) return 24;
+      if (Math.abs(fps - 60) < 0.1 || Math.abs(fps - 59.94) < 0.05) return 60;
+      return Math.round(fps);
+    }
+  } catch (err) {
+    console.warn('[SafeFace Zero] Could not extract container FPS, fallback to standard:', err);
+  }
+
+  return 30;
+}

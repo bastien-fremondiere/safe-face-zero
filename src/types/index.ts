@@ -25,11 +25,12 @@ export interface AnonymizationSettings {
   watermarkPosition: WatermarkPosition;
   watermarkOpacity: number; // 10 to 100, default 80
   watermarkScale: number; // 5 to 30, default 15
-  // Video optimization for mobile and low-end hardware
+  // Video processing & optimization
   videoEcoMode: boolean; // Anti-freeze & Anti-OOM mode
-  videoMaxResolution: '480p' | '720p' | '1080p'; // Capped resolution for frame processing
-  videoFps: number; // 6 to 15 fps (default 8)
+  videoMaxResolution: '480p' | '720p' | '1080p' | 'original'; // Resolution mode (original preserves native video quality)
+  videoFps: number; // 0 = original source cadence (no fps limit), or explicit fps 6..60
   videoFrameSkip: boolean; // Alternating face detection with tracking to cut AI load by 50%
+  videoTracking: boolean; // Temporal face tracking across frames to eliminate flickering
 }
 
 export interface DetectedFace {
@@ -43,6 +44,8 @@ export interface DetectedFace {
   gender: string;
   genderProbability: number;
   shouldMask: boolean;
+  trackId?: number;
+  assignedEmoji?: string;
 }
 
 export interface QueueItem {

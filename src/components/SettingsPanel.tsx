@@ -568,6 +568,29 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
           </p>
 
           <div className="mt-4 space-y-4">
+            {/* Suivi Temporel Anti-Clignotement (Temporal Face Tracking) */}
+            <div className="flex items-center justify-between rounded-lg bg-blue-950/30 p-3 border border-blue-800/40">
+              <div className="space-y-0.5">
+                <span className="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
+                  {t('settings.trackingTitle')}
+                  {settings.videoTracking && (
+                    <span className="text-[10px] font-bold text-blue-400 bg-blue-500/10 px-1.5 py-0.2 rounded border border-blue-500/30">
+                      Actif
+                    </span>
+                  )}
+                </span>
+                <p className="text-[11px] text-slate-400">
+                  {t('settings.trackingDesc')}
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                checked={settings.videoTracking}
+                onChange={(e) => onUpdate({ videoTracking: e.target.checked })}
+                className="h-4 w-4 rounded border-slate-700 bg-slate-800 text-blue-500 focus:ring-blue-500 cursor-pointer"
+              />
+            </div>
+
             {/* Mode Éco Toggle */}
             <div className="flex items-center justify-between rounded-lg bg-slate-900/60 p-3 border border-slate-800">
               <div className="space-y-0.5">
@@ -595,10 +618,12 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
             <div>
               <div className="flex justify-between items-center text-xs mb-1.5">
                 <span className="text-slate-300 font-medium">{t('settings.maxResolution')}</span>
-                <span className="font-mono text-blue-400 font-semibold">{settings.videoMaxResolution}</span>
+                <span className="font-mono text-blue-400 font-semibold">
+                  {settings.videoMaxResolution === 'original' ? 'Plein format' : settings.videoMaxResolution}
+                </span>
               </div>
-              <div className="grid grid-cols-3 gap-2">
-                {(['480p', '720p', '1080p'] as const).map((res) => (
+              <div className="grid grid-cols-4 gap-2">
+                {(['original', '1080p', '720p', '480p'] as const).map((res) => (
                   <button
                     key={res}
                     type="button"
@@ -609,7 +634,13 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
                         : 'bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-700'
                     }`}
                   >
-                    {res} {res === '480p' ? t('settings.resLight') : res === '720p' ? t('settings.resBalanced') : t('settings.resHd')}
+                    {res === 'original'
+                      ? t('settings.resOriginal')
+                      : res === '480p'
+                      ? `480p ${t('settings.resLight')}`
+                      : res === '720p'
+                      ? `720p ${t('settings.resBalanced')}`
+                      : `1080p ${t('settings.resHd')}`}
                   </button>
                 ))}
               </div>
@@ -633,26 +664,67 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
               />
             </div>
 
-            {/* Video FPS Slider */}
+            {/* Video FPS / Cadence Control */}
             <div>
-              <div className="flex justify-between items-center text-xs mb-1">
+              <div className="flex justify-between items-center text-xs mb-1.5">
                 <span className="text-slate-300 font-medium">{t('settings.fpsTitle')}</span>
-                <span className="font-mono text-blue-400 font-semibold">{settings.videoFps} fps</span>
+                <span className="font-mono text-blue-400 font-semibold">
+                  {settings.videoFps === 0 ? t('settings.fpsAuto') : `${settings.videoFps} fps`}
+                </span>
               </div>
-              <input
-                type="range"
-                min="6"
-                max="15"
-                step="1"
-                value={settings.videoFps}
-                onChange={(e) => onUpdate({ videoFps: Number(e.target.value) })}
-                className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-              />
-              <div className="flex justify-between text-[10px] text-slate-500 mt-1">
-                <span>{t('settings.fpsUltraLight')}</span>
-                <span>{t('settings.fpsStandard')}</span>
-                <span>{t('settings.fpsFluid')}</span>
+              <div className="flex gap-2 mb-2">
+                <button
+                  type="button"
+                  onClick={() => onUpdate({ videoFps: 0 })}
+                  className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-semibold border transition-all ${
+                    settings.videoFps === 0
+                      ? 'bg-blue-600 border-blue-500 text-white'
+                      : 'bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  ✨ {t('settings.fpsAuto')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onUpdate({ videoFps: 30 })}
+                  className={`py-1.5 px-3 rounded-lg text-xs font-semibold border transition-all ${
+                    settings.videoFps === 30
+                      ? 'bg-blue-600 border-blue-500 text-white'
+                      : 'bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  30 fps
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onUpdate({ videoFps: 60 })}
+                  className={`py-1.5 px-3 rounded-lg text-xs font-semibold border transition-all ${
+                    settings.videoFps === 60
+                      ? 'bg-blue-600 border-blue-500 text-white'
+                      : 'bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  60 fps
+                </button>
               </div>
+              {settings.videoFps > 0 && (
+                <div>
+                  <input
+                    type="range"
+                    min="10"
+                    max="60"
+                    step="1"
+                    value={settings.videoFps}
+                    onChange={(e) => onUpdate({ videoFps: Number(e.target.value) })}
+                    className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                  />
+                  <div className="flex justify-between text-[10px] text-slate-500 mt-1">
+                    <span>{t('settings.fpsUltraLight')}</span>
+                    <span>{t('settings.fpsStandard')}</span>
+                    <span>{t('settings.fpsFluid')}</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
