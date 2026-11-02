@@ -179,7 +179,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
             {/* Mode Hybrid */}
             <button
               type="button"
-              onClick={() => onUpdate({ maskMode: 'hybrid' })}
+              onClick={() => onUpdate({ maskMode: 'hybrid', selectedEmoji: settings.selectedEmoji || '🌈' })}
               className={`flex flex-col items-center justify-center p-3.5 rounded-xl border text-center transition-all ${
                 settings.maskMode === 'hybrid'
                   ? 'border-blue-500 bg-blue-500/15 text-white shadow-lg shadow-blue-500/10'
@@ -292,7 +292,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
                   <button
                     type="button"
                     onClick={() => {
-                      if (!settings.selectedEmoji) onUpdate({ selectedEmoji: '😎' });
+                      if (!settings.selectedEmoji) onUpdate({ selectedEmoji: '🌈' });
                     }}
                     className={`px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
                       settings.selectedEmoji

@@ -26,11 +26,11 @@ const saveAs = (fileSaver as unknown as { saveAs?: typeof fileSaver }).saveAs ||
 const deviceProfile = detectDeviceProfile();
 
 const DEFAULT_SETTINGS: AnonymizationSettings = {
-  ageThreshold: 16,
+  ageThreshold: 99, // Anonymize all faces by default (complete privacy)
   maskMode: 'blur',
   blurRadius: 30,
   facePadding: 15,
-  selectedEmoji: '😎',
+  selectedEmoji: '🌈', // Rainbow emoji by default for hybrid/stickers
   faceLogoUrl: null,
   faceLogoImage: null,
   watermarkEnabled: false,

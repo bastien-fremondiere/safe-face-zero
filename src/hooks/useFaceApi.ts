@@ -219,13 +219,20 @@ export function useFaceApi() {
         (det) => det.box.width <= width * 0.6 && det.box.height <= height * 0.6
       );
 
-      return validDetections.map((det) => ({
-        box: det.box,
-        age: det.age,
-        gender: det.gender || 'unknown',
-        genderProbability: det.genderProbability ?? 0.5,
-        shouldMask: ageThreshold >= 99 ? true : det.age <= ageThreshold,
-      }));
+      return validDetections.map((det) => {
+        // In video frames with fast motion, children screaming/jumping or small distant faces (< 60px)
+        // are often misclassified as adults (25-45) by neutral-face models. Compensate for this bias.
+        const isSmallVideoFace = !isImage && det.box.width < 60;
+        const effectiveAge = isSmallVideoFace ? Math.min(det.age, Math.round(det.age * 0.55)) : det.age;
+
+        return {
+          box: det.box,
+          age: effectiveAge,
+          gender: det.gender || 'unknown',
+          genderProbability: det.genderProbability ?? 0.5,
+          shouldMask: ageThreshold >= 99 ? true : effectiveAge <= ageThreshold,
+        };
+      });
     },
     [isModelLoaded]
   );

@@ -159,8 +159,11 @@ export function applyAnonymization(
       const isHybrid = settings.maskMode === 'hybrid';
       const logoImg = settings.faceLogoImage;
 
-      if (settings.selectedEmoji) {
-        let emojiToDraw = settings.selectedEmoji;
+      // In hybrid mode, default to '🌈' (rainbow) if no specific emoji or logo is set
+      const effectiveEmoji = settings.selectedEmoji ?? (isHybrid && !logoImg ? '🌈' : null);
+
+      if (effectiveEmoji) {
+        let emojiToDraw = effectiveEmoji;
         if (emojiToDraw === 'random') {
           emojiToDraw = face.assignedEmoji || FUN_EMOJIS[Math.abs(Math.round(centerX * 31 + centerY * 17)) % FUN_EMOJIS.length];
         }

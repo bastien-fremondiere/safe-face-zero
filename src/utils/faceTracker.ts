@@ -121,17 +121,20 @@ export class FaceTracker {
       det.box.height
     );
     const centerDist = Math.hypot(cTrackX - cDetX, cTrackY - cDetY);
-    const normDist = centerDist / Math.max(1, maxDim);
+
+    // Dynamic search radius allowing fast camera rotation / pan displacement
+    const searchRadius = Math.max(55, maxDim * 2.5);
+    const normDist = centerDist / searchRadius;
 
     const areaTrack = track.predictedBox.width * track.predictedBox.height;
     const areaDet = det.box.width * det.box.height;
     const areaRatio = Math.min(areaTrack, areaDet) / Math.max(1, Math.max(areaTrack, areaDet));
 
-    if (iou >= 0.25) {
-      return 0.65 * iou + 0.25 * (1 - Math.min(1, normDist)) + 0.1 * areaRatio;
+    if (iou >= 0.2) {
+      return 0.6 * iou + 0.3 * (1 - Math.min(1, normDist)) + 0.1 * areaRatio;
     }
-    if (normDist < 0.65 && areaRatio > 0.35) {
-      return 0.35 * iou + 0.45 * (1 - normDist) + 0.2 * areaRatio;
+    if (centerDist < searchRadius && areaRatio > 0.25) {
+      return 0.3 * iou + 0.5 * (1 - normDist) + 0.2 * areaRatio;
     }
     return 0;
   }
@@ -271,12 +274,11 @@ export class FaceTracker {
         }
       }
 
-      // 5. Unmatched detections: Initiate new tracks
+      // 5. Unmatched detections: Initiate new tracks immediately (even if only here for a few frames)
       for (let dIdx = 0; dIdx < detections.length; dIdx++) {
         if (!matchedDetections.has(dIdx)) {
           const det = detections[dIdx];
-          const assignedEmoji =
-            det.assignedEmoji || FUN_EMOJIS[(this.nextTrackId * 7) % FUN_EMOJIS.length];
+          const assignedEmoji = det.assignedEmoji || FUN_EMOJIS[(this.nextTrackId * 7) % FUN_EMOJIS.length];
 
           this.tracks.push({
             id: this.nextTrackId++,
@@ -298,8 +300,21 @@ export class FaceTracker {
       }
     }
 
-    // 6. Evict expired tracks that exceeded coasting threshold
-    this.tracks = this.tracks.filter((t) => t.missedFrames <= this.maxCoastingFrames);
+    // 6. Evict expired tracks that left the screen or exceeded coasting threshold
+    this.tracks = this.tracks.filter((t) => {
+      // If the face has rotated completely out of the frame viewport, retire immediately
+      if (
+        t.box.x + t.box.width <= 0 ||
+        t.box.y + t.box.height <= 0 ||
+        t.box.x >= frameWidth ||
+        t.box.y >= frameHeight
+      ) {
+        return false;
+      }
+      // Adaptive coast limit: transient faces (visible for 1-2 frames) don't linger in empty air
+      const coastLimit = t.totalHits >= 3 ? this.maxCoastingFrames : Math.min(2, t.totalHits);
+      return t.missedFrames <= coastLimit;
+    });
 
     // 7. Output stabilized faces
     return this.tracks.map((t) => ({
