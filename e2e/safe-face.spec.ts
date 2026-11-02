@@ -36,19 +36,24 @@ test.describe('SafeFace Zero - Suite de Tests E2E', () => {
     expect(externalRequests).toEqual([]);
   });
 
-  test('02. Traitement d’une photo de portrait & Comparaison Slider Diff 50%', async ({ page }) => {
+  test('02. Traitement d’une photo, réglage du slider de flou & Preview live', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByText('Prêt (WebGL)')).toBeVisible({ timeout: 20000 });
 
-    // Click on demo sample: Photo Portrait
-    const portraitBtn = page.getByRole('button', { name: /Photo Portrait/i });
-    await expect(portraitBtn).toBeVisible();
-    await portraitBtn.click();
+    // Click on demo sample: 1 Enfant (7 ans)
+    const childBtn = page.getByRole('button', { name: /1 Enfant \(7 ans\)/i });
+    await expect(childBtn).toBeVisible();
+    await childBtn.click();
 
     // Verify item appeared in queue
-    const queueItem = page.locator('text=portrait_ado_test.jpg');
+    const queueItem = page.locator('text=enfant_7ans.jpg');
     await expect(queueItem).toBeVisible();
-    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '02-sample-portrait-loaded.png') });
+
+    // Adjust blur slider in settings to 50px using preset button
+    const presetFort = page.getByRole('button', { name: /50px \(Fort\)/i });
+    await expect(presetFort).toBeVisible();
+    await presetFort.click();
+    await expect(page.getByText('50 px')).toBeVisible();
 
     // Click "Tout anonymiser"
     const processBtn = page.getByRole('button', { name: /Tout anonymiser/i });
@@ -56,18 +61,19 @@ test.describe('SafeFace Zero - Suite de Tests E2E', () => {
 
     // Wait for success status
     await expect(page.getByText('Succès')).toBeVisible({ timeout: 25000 });
-    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '03-portrait-anonymized.png') });
 
     // Open Preview modal
     const previewBtn = page.getByTitle('Aperçu Comparatif (Slider Avant/Après)');
     await previewBtn.click();
 
-    // Verify Preview modal is opened with Diff Slider
+    // Verify Preview modal is opened with Diff Slider and new blur controls
     await expect(page.getByText('Slider Diff 50%')).toBeVisible();
     await expect(page.getByText('AVANT (ORIGINAL)')).toBeVisible();
     await expect(page.getByText('APRÈS (ANONYMISÉ)')).toBeVisible();
+    await expect(page.locator('text=Flou :')).toContainText('50 px');
+    await expect(page.getByRole('button', { name: /Appliquer ce flou/i })).toBeVisible();
 
-    // Take screenshot of 50% slider diff
+    // Take screenshot of 50% slider diff with 50px blur
     await page.waitForTimeout(500);
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '04-preview-diff-slider-50.png') });
 
@@ -82,7 +88,7 @@ test.describe('SafeFace Zero - Suite de Tests E2E', () => {
     await expect(page.getByText('AVANT (ORIGINAL)')).not.toBeVisible();
   });
 
-  test('03. Traitement Photo de Groupe en Mode Hybride (Flou + Sticker Bouclier)', async ({ page }) => {
+  test('03. Traitement Photo en Mode Hybride (Flou + Sticker Bouclier)', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByText('Prêt (WebGL)')).toBeVisible({ timeout: 20000 });
 
@@ -90,12 +96,12 @@ test.describe('SafeFace Zero - Suite de Tests E2E', () => {
     const hybridModeBtn = page.getByRole('button', { name: /3. Hybride/i });
     await hybridModeBtn.click();
 
-    // Click on demo sample: Photo Groupe
-    const groupBtn = page.getByRole('button', { name: /Photo Groupe/i });
+    // Click on demo sample: 2 Enfants (8-10 ans)
+    const groupBtn = page.getByRole('button', { name: /2 Enfants \(8-10 ans\)/i });
     await groupBtn.click();
 
     // Wait for file in queue
-    await expect(page.locator('text=groupe_enfants_test.jpg')).toBeVisible();
+    await expect(page.locator('text=deux_enfants_ecole.jpg')).toBeVisible();
 
     // Process all
     const processBtn = page.getByRole('button', { name: /Tout anonymiser/i });

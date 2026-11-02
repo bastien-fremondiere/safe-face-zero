@@ -190,20 +190,88 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
 
           {/* Sub-settings depending on mode */}
           {(settings.maskMode === 'blur' || settings.maskMode === 'hybrid') && (
-            <div className="mt-4 pt-3 border-t border-slate-700/50">
-              <div className="flex justify-between items-center text-xs mb-1.5">
-                <span className="text-slate-300 font-medium">Rayon de flou gaussien:</span>
-                <span className="font-mono text-blue-400 font-semibold">{settings.blurRadius} px</span>
+            <div className="mt-4 pt-3 border-t border-slate-700/50 space-y-3">
+              <div className="flex justify-between items-center text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-200 font-semibold">Intensité du flou gaussien :</span>
+                  <span
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                      settings.blurRadius <= 15
+                        ? 'text-sky-400 bg-sky-500/10 border-sky-500/30'
+                        : settings.blurRadius <= 35
+                        ? 'text-blue-400 bg-blue-500/10 border-blue-500/30'
+                        : settings.blurRadius <= 60
+                        ? 'text-indigo-400 bg-indigo-500/10 border-indigo-500/30'
+                        : 'text-purple-400 bg-purple-500/10 border-purple-500/30'
+                    }`}
+                  >
+                    {settings.blurRadius <= 15
+                      ? 'Léger'
+                      : settings.blurRadius <= 35
+                      ? 'Standard RGPD'
+                      : settings.blurRadius <= 60
+                      ? 'Fort'
+                      : 'Intense (Opaque)'}
+                  </span>
+                </div>
+                <span className="font-mono text-xs text-blue-400 font-bold bg-slate-900 px-2 py-0.5 rounded border border-slate-700">
+                  {settings.blurRadius} px
+                </span>
               </div>
-              <input
-                type="range"
-                min="10"
-                max="60"
-                step="2"
-                value={settings.blurRadius}
-                onChange={(e) => onUpdate({ blurRadius: Number(e.target.value) })}
-                className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-              />
+
+              {/* Slider with - and + precision buttons */}
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => onUpdate({ blurRadius: Math.max(5, settings.blurRadius - 5) })}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-sm border border-slate-700 transition-colors cursor-pointer"
+                  title="Diminuer le flou (-5px)"
+                >
+                  -
+                </button>
+                <div className="relative flex-1 flex items-center">
+                  <input
+                    type="range"
+                    min="5"
+                    max="100"
+                    step="1"
+                    value={settings.blurRadius}
+                    onChange={(e) => onUpdate({ blurRadius: Number(e.target.value) })}
+                    className="w-full h-2 bg-gradient-to-r from-blue-900/40 via-blue-600/50 to-indigo-500/80 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onUpdate({ blurRadius: Math.min(100, settings.blurRadius + 5) })}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-sm border border-slate-700 transition-colors cursor-pointer"
+                  title="Augmenter le flou (+5px)"
+                >
+                  +
+                </button>
+              </div>
+
+              {/* Quick preset buttons */}
+              <div className="grid grid-cols-4 gap-1.5 pt-1">
+                {[
+                  { label: 'Léger', val: 15 },
+                  { label: 'Standard', val: 30 },
+                  { label: 'Fort', val: 50 },
+                  { label: 'Intense', val: 75 },
+                ].map((preset) => (
+                  <button
+                    key={preset.val}
+                    type="button"
+                    onClick={() => onUpdate({ blurRadius: preset.val })}
+                    className={`py-1 rounded-md text-[11px] font-medium border transition-all cursor-pointer ${
+                      settings.blurRadius === preset.val
+                        ? 'bg-blue-600/30 border-blue-500 text-white font-semibold shadow-sm shadow-blue-500/20'
+                        : 'bg-slate-800/60 border-slate-700/80 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                    }`}
+                  >
+                    {preset.val}px ({preset.label})
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 

@@ -6,7 +6,6 @@ import { DropZone } from './components/DropZone';
 import { SettingsPanel } from './components/SettingsPanel';
 import { MediaQueue } from './components/MediaQueue';
 import { PreviewModal } from './components/PreviewModal';
-import { QueueItem } from './types';
 
 export const App: React.FC = () => {
   const {
@@ -29,7 +28,8 @@ export const App: React.FC = () => {
     exportAllAsZip,
   } = useMediaProcessor();
 
-  const [previewItem, setPreviewItem] = useState<QueueItem | null>(null);
+  const [previewItemId, setPreviewItemId] = useState<string | null>(null);
+  const previewItem = queue.find((q) => q.id === previewItemId) || null;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
@@ -111,7 +111,7 @@ export const App: React.FC = () => {
               onClearQueue={clearQueue}
               onCancelProcessing={cancelProcessing}
               onExportZip={exportAllAsZip}
-              onOpenPreview={setPreviewItem}
+              onOpenPreview={(item) => setPreviewItemId(item.id)}
             />
           </div>
 
@@ -122,8 +122,17 @@ export const App: React.FC = () => {
         </div>
       </main>
 
-      {/* Modal for preview and side-by-side comparison */}
-      <PreviewModal item={previewItem} onClose={() => setPreviewItem(null)} />
+      {/* Modal for preview and side-by-side comparison with live blur adjustment */}
+      <PreviewModal
+        item={previewItem}
+        onClose={() => setPreviewItemId(null)}
+        blurRadius={settings.blurRadius}
+        onUpdateBlur={(radius) => updateSettings({ blurRadius: radius })}
+        onReprocess={async (id) => {
+          await processItem(id);
+        }}
+        isProcessing={isProcessing}
+      />
 
       {/* Footer */}
       <footer className="mt-12 border-t border-slate-800 bg-slate-950/90 py-8">

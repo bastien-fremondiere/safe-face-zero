@@ -1,5 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { X, Download, SlidersHorizontal, Columns, Shield, Eye, CheckCircle2 } from 'lucide-react';
+import {
+  X,
+  Download,
+  SlidersHorizontal,
+  Columns,
+  Shield,
+  Eye,
+  CheckCircle2,
+  EyeOff,
+  RotateCcw,
+  Loader2,
+} from 'lucide-react';
 import fileSaver from 'file-saver';
 import { QueueItem } from '../types';
 import { BeforeAfterSlider } from './BeforeAfterSlider';
@@ -9,9 +20,20 @@ const saveAs = (fileSaver as unknown as { saveAs?: typeof fileSaver }).saveAs ||
 interface PreviewModalProps {
   item: QueueItem | null;
   onClose: () => void;
+  blurRadius?: number;
+  onUpdateBlur?: (radius: number) => void;
+  onReprocess?: (id: string) => Promise<void> | void;
+  isProcessing?: boolean;
 }
 
-export const PreviewModal: React.FC<PreviewModalProps> = ({ item, onClose }) => {
+export const PreviewModal: React.FC<PreviewModalProps> = ({
+  item,
+  onClose,
+  blurRadius,
+  onUpdateBlur,
+  onReprocess,
+  isProcessing = false,
+}) => {
   // Default to interactive slider at 50%
   const [viewMode, setViewMode] = useState<'slider' | 'side-by-side' | 'anonymized-only'>('slider');
   const [originalUrl, setOriginalUrl] = useState<string | null>(null);
@@ -223,6 +245,73 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({ item, onClose }) => 
               )}
             </div>
           )}
+        </div>
+
+        {/* Modal Footer with Interactive Blurriness Slider & Actions */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3 border-t border-slate-800 bg-slate-900/95 text-xs">
+          {/* Quick Blurriness Slider */}
+          <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+            <span className="text-slate-300 font-semibold shrink-0 flex items-center gap-1.5 bg-slate-800/80 px-2 py-1 rounded-lg border border-slate-700">
+              <EyeOff className="h-3.5 w-3.5 text-blue-400" />
+              Flou : <span className="font-mono text-blue-400 font-bold">{blurRadius ?? 30} px</span>
+            </span>
+
+            {onUpdateBlur && (
+              <div className="flex items-center gap-1.5 flex-1 min-w-[140px] sm:w-44">
+                <input
+                  type="range"
+                  min="5"
+                  max="100"
+                  step="1"
+                  value={blurRadius ?? 30}
+                  onChange={(e) => onUpdateBlur(Number(e.target.value))}
+                  className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                  title="Ajuster la puissance du flou gaussien"
+                />
+              </div>
+            )}
+
+            {item.type === 'image' && onReprocess && (
+              <button
+                type="button"
+                disabled={isProcessing}
+                onClick={() => onReprocess(item.id)}
+                className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/40 text-blue-300 disabled:opacity-50 px-2.5 py-1 text-xs font-semibold transition-colors cursor-pointer shadow-sm"
+                title="Recalculer le masque avec le nouveau niveau de flou"
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <span>Calcul...</span>
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className="h-3 w-3" />
+                    <span>Appliquer ce flou</span>
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+            <button
+              type="button"
+              onClick={handleDownload}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs px-3.5 py-1.5 transition-all cursor-pointer shadow-md shadow-emerald-600/20"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Télécharger
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium px-3 py-1.5 transition-colors cursor-pointer border border-slate-700"
+            >
+              Fermer
+            </button>
+          </div>
         </div>
       </div>
     </div>
