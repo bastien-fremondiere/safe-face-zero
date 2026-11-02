@@ -140,6 +140,8 @@ export const es = {
   'preview.sliderTitle': 'Deslizador interactivo comparativo Antes/Después',
   'preview.sideBySide': 'Lado a lado',
   'preview.sideBySideTitle': 'Vista lado a lado',
+  'preview.loupe': 'Lupa (2.5×)',
+  'preview.loupeTitle': 'Activar/Desactivar lupa de aumento al pasar el ratón',
   'preview.download': 'Descargar',
   'preview.close': 'Cerrar',
   'preview.beforeOriginal': 'ANTES (ORIGINAL)',

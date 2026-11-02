@@ -140,6 +140,8 @@ export const fr = {
   'preview.sliderTitle': 'Curseur interactif Diff Avant/Après',
   'preview.sideBySide': 'Côte-à-côte',
   'preview.sideBySideTitle': 'Vue côte-à-côte',
+  'preview.loupe': 'Loupe (2.5×)',
+  'preview.loupeTitle': 'Activer/Désactiver la loupe de zoom au survol',
   'preview.download': 'Télécharger',
   'preview.close': 'Fermer',
   'preview.beforeOriginal': 'AVANT (ORIGINAL)',

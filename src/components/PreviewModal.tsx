@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
   Download,
@@ -10,10 +10,12 @@ import {
   EyeOff,
   RotateCcw,
   Loader2,
+  ZoomIn,
 } from 'lucide-react';
 import fileSaver from 'file-saver';
 import { QueueItem } from '../types';
 import { BeforeAfterSlider } from './BeforeAfterSlider';
+import { ImageLoupe } from './ImageLoupe';
 import { useI18n } from '../i18n/I18nContext';
 
 const saveAs = (fileSaver as unknown as { saveAs?: typeof fileSaver }).saveAs || fileSaver;
@@ -39,6 +41,15 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
   // Default to interactive slider at 50%
   const [viewMode, setViewMode] = useState<'slider' | 'side-by-side' | 'anonymized-only'>('slider');
   const [originalUrl, setOriginalUrl] = useState<string | null>(null);
+  const [loupeEnabled, setLoupeEnabled] = useState<boolean>(true);
+
+  // Refs for side-by-side & single view image inspection
+  const sideOriginalContainerRef = useRef<HTMLDivElement>(null);
+  const sideOriginalImgRef = useRef<HTMLImageElement>(null);
+  const sideAnonContainerRef = useRef<HTMLDivElement>(null);
+  const sideAnonImgRef = useRef<HTMLImageElement>(null);
+  const singleViewContainerRef = useRef<HTMLDivElement>(null);
+  const singleViewImgRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
     if (item?.file) {
@@ -138,6 +149,23 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
               </button>
             </div>
 
+            {/* Loupe Toggle Button for Photos */}
+            {item.type !== 'video' && (
+              <button
+                type="button"
+                onClick={() => setLoupeEnabled(!loupeEnabled)}
+                className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold border transition-all ${
+                  loupeEnabled
+                    ? 'bg-blue-600 text-white shadow-sm border-blue-500'
+                    : 'bg-slate-800 text-slate-400 hover:text-slate-200 border-slate-700'
+                }`}
+                title={t('preview.loupeTitle')}
+              >
+                <ZoomIn className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">{t('preview.loupe')}</span>
+              </button>
+            )}
+
             {/* Download */}
             <button
               type="button"
@@ -173,7 +201,10 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
             /* Side by Side Mode */
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full h-full min-h-[380px]">
               {/* Original */}
-              <div className="flex flex-col rounded-xl border border-slate-800 bg-slate-900/60 overflow-hidden">
+              <div
+                ref={sideOriginalContainerRef}
+                className="relative flex flex-col rounded-xl border border-slate-800 bg-slate-900/60 overflow-hidden"
+              >
                 <div className="px-3 py-2 bg-slate-850 border-b border-slate-800 text-xs font-semibold text-slate-400 flex justify-between items-center">
                   <span>{t('preview.beforeOriginal')}</span>
                   <span className="text-[10px] text-slate-500">{t('preview.sourceMedia')}</span>
@@ -190,6 +221,7 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
                   ) : (
                     originalUrl && (
                       <img
+                        ref={sideOriginalImgRef}
                         src={originalUrl}
                         alt="Original"
                         className="max-h-[50vh] max-w-full rounded-lg object-contain shadow-md"
@@ -197,10 +229,22 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
                     )
                   )}
                 </div>
+                {item.type !== 'video' && (
+                  <ImageLoupe
+                    containerRef={sideOriginalContainerRef}
+                    targetImgRef={sideOriginalImgRef}
+                    enabled={loupeEnabled}
+                    zoom={2.5}
+                    size={160}
+                  />
+                )}
               </div>
 
               {/* Anonymized */}
-              <div className="flex flex-col rounded-xl border border-blue-500/30 bg-slate-900/60 overflow-hidden shadow-lg shadow-blue-500/5">
+              <div
+                ref={sideAnonContainerRef}
+                className="relative flex flex-col rounded-xl border border-blue-500/30 bg-slate-900/60 overflow-hidden shadow-lg shadow-blue-500/5"
+              >
                 <div className="px-3 py-2 bg-blue-950/40 border-b border-blue-500/20 text-xs font-semibold text-blue-300 flex justify-between items-center">
                   <span className="flex items-center gap-1.5">
                     <Shield className="h-3.5 w-3.5 text-blue-400" />
@@ -219,17 +263,30 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
                     />
                   ) : (
                     <img
+                      ref={sideAnonImgRef}
                       src={item.resultUrl}
                       alt="Anonymisé"
                       className="max-h-[50vh] max-w-full rounded-lg object-contain shadow-md"
                     />
                   )}
                 </div>
+                {item.type !== 'video' && (
+                  <ImageLoupe
+                    containerRef={sideAnonContainerRef}
+                    targetImgRef={sideAnonImgRef}
+                    enabled={loupeEnabled}
+                    zoom={2.5}
+                    size={160}
+                  />
+                )}
               </div>
             </div>
           ) : (
             /* Single Large View */
-            <div className="flex flex-col items-center justify-center h-full min-h-[420px] rounded-xl border border-blue-500/30 bg-slate-900/60 p-4">
+            <div
+              ref={singleViewContainerRef}
+              className="relative flex flex-col items-center justify-center h-full min-h-[420px] rounded-xl border border-blue-500/30 bg-slate-900/60 p-4"
+            >
               {item.type === 'video' ? (
                 <video
                   src={item.resultUrl}
@@ -240,9 +297,19 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
                 />
               ) : (
                 <img
+                  ref={singleViewImgRef}
                   src={item.resultUrl}
                   alt="Anonymisé"
                   className="max-h-[65vh] max-w-full rounded-lg object-contain shadow-2xl"
+                />
+              )}
+              {item.type !== 'video' && (
+                <ImageLoupe
+                  containerRef={singleViewContainerRef}
+                  targetImgRef={singleViewImgRef}
+                  enabled={loupeEnabled}
+                  zoom={2.5}
+                  size={160}
                 />
               )}
             </div>

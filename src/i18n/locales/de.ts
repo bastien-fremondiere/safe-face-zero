@@ -140,6 +140,8 @@ export const de = {
   'preview.sliderTitle': 'Interaktiver Vorher/Nachher Schieberegler',
   'preview.sideBySide': 'Nebeneinander',
   'preview.sideBySideTitle': 'Ansicht nebeneinander',
+  'preview.loupe': 'Lupe (2.5×)',
+  'preview.loupeTitle': 'Hover-Vergrößerungslupe ein-/ausschalten',
   'preview.download': 'Herunterladen',
   'preview.close': 'Schließen',
   'preview.beforeOriginal': 'VORHER (ORIGINAL)',

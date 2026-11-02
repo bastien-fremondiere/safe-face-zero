@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Play, Pause, RotateCcw, MoveHorizontal, Shield, Sparkles } from 'lucide-react';
+import { Play, Pause, RotateCcw, MoveHorizontal, Shield, Sparkles, ZoomIn } from 'lucide-react';
 import { useI18n } from '../i18n/I18nContext';
+import { ImageLoupe } from './ImageLoupe';
 
 interface BeforeAfterSliderProps {
   type: 'image' | 'video';
@@ -17,7 +18,10 @@ export const BeforeAfterSlider: React.FC<BeforeAfterSliderProps> = ({
   const { t } = useI18n();
   const [sliderPosition, setSliderPosition] = useState<number>(50); // 0 to 100%, default 50%
   const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [loupeEnabled, setLoupeEnabled] = useState<boolean>(true);
   const containerRef = useRef<HTMLDivElement>(null);
+  const anonymizedImgRef = useRef<HTMLImageElement>(null);
+  const originalImgRef = useRef<HTMLImageElement>(null);
 
   // Video sync controls
   const originalVideoRef = useRef<HTMLVideoElement>(null);
@@ -134,26 +138,44 @@ export const BeforeAfterSlider: React.FC<BeforeAfterSliderProps> = ({
           <span>{t('slider.instruction')}</span>
         </div>
 
-        {/* Quick jump presets */}
-        <div className="flex items-center gap-1.5">
-          {[
-            { label: t('slider.original'), pos: 100 },
-            { label: t('slider.diff50'), pos: 50 },
-            { label: t('slider.anonymized'), pos: 0 },
-          ].map((preset) => (
+        {/* Quick jump presets & Loupe toggle */}
+        <div className="flex items-center gap-2">
+          {type === 'image' && (
             <button
-              key={preset.label}
               type="button"
-              onClick={() => setSliderPosition(preset.pos)}
-              className={`rounded-md px-2 py-0.5 text-[11px] font-semibold transition-colors ${
-                Math.round(sliderPosition) === preset.pos
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+              onClick={() => setLoupeEnabled((prev) => !prev)}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold border transition-all ${
+                loupeEnabled
+                  ? 'bg-blue-600 text-white shadow-sm border-blue-500'
+                  : 'bg-slate-800 text-slate-400 hover:text-slate-200 border-slate-700'
               }`}
+              title={t('preview.loupeTitle')}
             >
-              {preset.label}
+              <ZoomIn className="h-3.5 w-3.5" />
+              <span>{t('preview.loupe')}</span>
             </button>
-          ))}
+          )}
+
+          <div className="flex items-center gap-1 bg-slate-900/60 p-0.5 rounded-lg border border-slate-800">
+            {[
+              { label: t('slider.original'), pos: 100 },
+              { label: t('slider.diff50'), pos: 50 },
+              { label: t('slider.anonymized'), pos: 0 },
+            ].map((preset) => (
+              <button
+                key={preset.label}
+                type="button"
+                onClick={() => setSliderPosition(preset.pos)}
+                className={`rounded-md px-2 py-0.5 text-[11px] font-semibold transition-colors ${
+                  Math.round(sliderPosition) === preset.pos
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                }`}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -179,6 +201,7 @@ export const BeforeAfterSlider: React.FC<BeforeAfterSliderProps> = ({
             />
           ) : (
             <img
+              ref={anonymizedImgRef}
               src={anonymizedUrl}
               alt="Anonymisé"
               className="max-h-[60vh] max-w-full w-auto h-auto object-contain pointer-events-none"
@@ -213,6 +236,7 @@ export const BeforeAfterSlider: React.FC<BeforeAfterSliderProps> = ({
             />
           ) : (
             <img
+              ref={originalImgRef}
               src={originalUrl}
               alt="Original"
               className="max-h-[60vh] max-w-full w-auto h-auto object-contain"
@@ -238,6 +262,20 @@ export const BeforeAfterSlider: React.FC<BeforeAfterSliderProps> = ({
             <MoveHorizontal className="h-4 w-4 stroke-[2.5]" />
           </div>
         </div>
+
+        {/* Floating Magnifying Loupe for Image Inspection */}
+        {type === 'image' && (
+          <ImageLoupe
+            containerRef={containerRef}
+            targetImgRef={anonymizedImgRef}
+            secondaryImgRef={originalImgRef}
+            sliderPosition={sliderPosition}
+            enabled={loupeEnabled}
+            isDragging={isDragging}
+            zoom={2.5}
+            size={160}
+          />
+        )}
       </div>
 
       {/* Synchronized Video Controls (Only if Video) */}

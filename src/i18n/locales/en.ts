@@ -140,6 +140,8 @@ export const en = {
   'preview.sliderTitle': 'Interactive Before/After Diff Slider',
   'preview.sideBySide': 'Side-by-side',
   'preview.sideBySideTitle': 'Side-by-side view',
+  'preview.loupe': 'Magnifier (2.5×)',
+  'preview.loupeTitle': 'Toggle hover magnifying glass',
   'preview.download': 'Download',
   'preview.close': 'Close',
   'preview.beforeOriginal': 'BEFORE (ORIGINAL)',
