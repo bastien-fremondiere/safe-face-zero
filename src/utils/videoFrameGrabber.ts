@@ -27,15 +27,23 @@ export function createDecodingVideo(src: string): HTMLVideoElement {
   video.setAttribute('playsinline', '');
   video.setAttribute('muted', '');
   video.preload = 'auto';
+  // Crucial for Firefox Android & Mobile WebKit: The element must be genuinely visible in the
+  // compositor layout (positive z-index, non-zero opacity, real dimensions) so hardware
+  // video decode suspension is never triggered.
   Object.assign(video.style, {
     position: 'fixed',
-    right: '0px',
-    bottom: '0px',
-    width: '4px',
-    height: '4px',
-    opacity: '0.01',
+    right: '12px',
+    bottom: '12px',
+    width: '112px',
+    height: '63px',
+    opacity: '0.9',
+    zIndex: '9999',
+    borderRadius: '8px',
+    border: '2px solid rgba(59, 130, 246, 0.7)',
+    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.7)',
+    objectFit: 'cover',
     pointerEvents: 'none',
-    zIndex: '-1',
+    backgroundColor: '#000000',
   } as Partial<CSSStyleDeclaration>);
   video.src = src;
   document.body.appendChild(video);
@@ -145,6 +153,8 @@ export async function grabFrame(
   height: number
 ): Promise<boolean> {
   await seekTo(video, t);
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, 0, width, height);
   ctx.drawImage(video, 0, 0, width, height);
   if (!isCanvasBlack(ctx.canvas)) return true;
 
@@ -158,6 +168,7 @@ export async function grabFrame(
     video.pause();
     await seekTo(video, t);
     await wait(80 * (attempt + 1));
+    ctx.fillRect(0, 0, width, height);
     ctx.drawImage(video, 0, 0, width, height);
     if (!isCanvasBlack(ctx.canvas)) return true;
   }

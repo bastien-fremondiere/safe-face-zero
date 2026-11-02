@@ -285,10 +285,10 @@ export function useMediaProcessor() {
           const gotFrame = await grabFrame(video, t, ctx, targetWidth, targetHeight);
           if (!gotFrame) {
             blackFrames++;
-            // Abort early instead of silently producing a black video
-            if (stepIdx >= 7 && blackFrames === stepIdx + 1) {
+            // Abort early only if the video decoder repeatedly delivers solid black beyond the intro
+            if (stepIdx >= 16 && blackFrames === stepIdx + 1) {
               throw new Error(
-                'Le navigateur ne fournit que des images noires pour cette vidéo (décodeur matériel indisponible). Essayez Chrome ou réduisez la résolution.'
+                'Le décodeur vidéo du navigateur ne renvoie que des images noires. Veuillez désactiver les bloqueurs stricts ou essayer un autre navigateur (Chrome/Edge).'
               );
             }
           }
