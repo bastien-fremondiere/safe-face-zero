@@ -15,6 +15,7 @@ import {
 import { AnonymizationSettings, WatermarkPosition } from '../types';
 import { loadImage } from '../utils/canvasMasker';
 import { detectDeviceProfile } from '../utils/performance';
+import { useI18n } from '../i18n/I18nContext';
 
 interface SettingsPanelProps {
   settings: AnonymizationSettings;
@@ -22,6 +23,7 @@ interface SettingsPanelProps {
 }
 
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate }) => {
+  const { t } = useI18n();
   const logoInputRef = useRef<HTMLInputElement>(null);
   const watermarkInputRef = useRef<HTMLInputElement>(null);
   const deviceProfile = detectDeviceProfile();
@@ -75,7 +77,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
       <div className="flex items-center gap-2.5 pb-4 border-b border-slate-800">
         <Sliders className="h-5 w-5 text-blue-400" />
         <h3 className="text-lg font-bold text-white tracking-wide">
-          Paramètres & Règles d'Anonymisation
+          {t('settings.title')}
         </h3>
       </div>
 
@@ -85,19 +87,19 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
           <div className="flex items-center justify-between">
             <label className="text-sm font-semibold text-slate-200 flex items-center gap-2">
               <Shield className="h-4 w-4 text-blue-400" />
-              Seuil d'âge IA (Protection des mineurs)
+              {t('settings.ageThresholdTitle')}
             </label>
             <span className="rounded-md bg-blue-500/20 px-2.5 py-0.5 text-xs font-bold text-blue-300 border border-blue-500/30">
-              ≤ {settings.ageThreshold} ans
+              {t('settings.ageYears', { age: settings.ageThreshold })}
             </span>
           </div>
 
           <p className="mt-1 text-xs text-slate-400">
-            Seuls les visages estimés inférieurs ou égaux à cet âge seront masqués.
+            {t('settings.ageSubtitle')}
           </p>
 
           <div className="mt-4 flex items-center gap-4">
-            <span className="text-xs text-slate-500 font-mono">3 ans</span>
+            <span className="text-xs text-slate-500 font-mono">{t('settings.ageMin')}</span>
             <input
               type="range"
               min="3"
@@ -107,16 +109,16 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
               onChange={(e) => onUpdate({ ageThreshold: Number(e.target.value) })}
               className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
             />
-            <span className="text-xs text-slate-500 font-mono">25 ans</span>
+            <span className="text-xs text-slate-500 font-mono">{t('settings.ageMax')}</span>
           </div>
 
           {/* Quick preset buttons */}
           <div className="mt-3 flex flex-wrap gap-2">
             {[
-              { label: 'Petite enfance (≤ 10 ans)', value: 10 },
-              { label: 'Adolescents (≤ 16 ans)', value: 16 },
-              { label: 'Tous mineurs (≤ 18 ans)', value: 18 },
-              { label: 'Tous visages (≤ 25 ans)', value: 25 },
+              { label: t('settings.presetToddlers'), value: 10 },
+              { label: t('settings.presetTeens'), value: 16 },
+              { label: t('settings.presetMinors'), value: 18 },
+              { label: t('settings.presetAll'), value: 25 },
             ].map((preset) => (
               <button
                 key={preset.value}
@@ -138,7 +140,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
         <div className="rounded-xl bg-slate-800/40 p-4 border border-slate-700/50">
           <label className="text-sm font-semibold text-slate-200 flex items-center gap-2 mb-3">
             <EyeOff className="h-4 w-4 text-indigo-400" />
-            Mode de masquage des visages
+            {t('settings.maskModeTitle')}
           </label>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -153,8 +155,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
               }`}
             >
               <EyeOff className="h-5 w-5 mb-1.5 text-blue-400" />
-              <span className="text-xs font-bold">1. Flou Gaussien</span>
-              <span className="text-[10px] text-slate-400 mt-0.5">Effouage haute densité</span>
+              <span className="text-xs font-bold">{t('settings.modeBlur')}</span>
+              <span className="text-[10px] text-slate-400 mt-0.5">{t('settings.modeBlurDesc')}</span>
             </button>
 
             {/* Mode Logo */}
@@ -168,8 +170,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
               }`}
             >
               <ImageIcon className="h-5 w-5 mb-1.5 text-indigo-400" />
-              <span className="text-xs font-bold">2. Logo / Sticker</span>
-              <span className="text-[10px] text-slate-400 mt-0.5">Incrustation personnalisée</span>
+              <span className="text-xs font-bold">{t('settings.modeLogo')}</span>
+              <span className="text-[10px] text-slate-400 mt-0.5">{t('settings.modeLogoDesc')}</span>
             </button>
 
             {/* Mode Hybrid */}
@@ -183,8 +185,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
               }`}
             >
               <Layers className="h-5 w-5 mb-1.5 text-emerald-400" />
-              <span className="text-xs font-bold">3. Hybride</span>
-              <span className="text-[10px] text-slate-400 mt-0.5">Flou + Sticker centré</span>
+              <span className="text-xs font-bold">{t('settings.modeHybrid')}</span>
+              <span className="text-[10px] text-slate-400 mt-0.5">{t('settings.modeHybridDesc')}</span>
             </button>
           </div>
 
@@ -193,7 +195,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
             <div className="mt-4 pt-3 border-t border-slate-700/50 space-y-3">
               <div className="flex justify-between items-center text-xs">
                 <div className="flex items-center gap-2">
-                  <span className="text-slate-200 font-semibold">Intensité du flou gaussien :</span>
+                  <span className="text-slate-200 font-semibold">{t('settings.blurIntensity')}</span>
                   <span
                     className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
                       settings.blurRadius <= 15
@@ -206,12 +208,12 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
                     }`}
                   >
                     {settings.blurRadius <= 15
-                      ? 'Léger'
+                      ? t('settings.blurLight')
                       : settings.blurRadius <= 35
-                      ? 'Standard RGPD'
+                      ? t('settings.blurStandard')
                       : settings.blurRadius <= 60
-                      ? 'Fort'
-                      : 'Intense (Opaque)'}
+                      ? t('settings.blurStrong')
+                      : t('settings.blurIntense')}
                   </span>
                 </div>
                 <span className="font-mono text-xs text-blue-400 font-bold bg-slate-900 px-2 py-0.5 rounded border border-slate-700">
@@ -225,7 +227,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
                   type="button"
                   onClick={() => onUpdate({ blurRadius: Math.max(5, settings.blurRadius - 5) })}
                   className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-sm border border-slate-700 transition-colors cursor-pointer"
-                  title="Diminuer le flou (-5px)"
+                  title={t('settings.blurDecrease')}
                 >
                   -
                 </button>
@@ -244,7 +246,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
                   type="button"
                   onClick={() => onUpdate({ blurRadius: Math.min(100, settings.blurRadius + 5) })}
                   className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-sm border border-slate-700 transition-colors cursor-pointer"
-                  title="Augmenter le flou (+5px)"
+                  title={t('settings.blurIncrease')}
                 >
                   +
                 </button>
@@ -253,10 +255,10 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
               {/* Quick preset buttons */}
               <div className="grid grid-cols-4 gap-1.5 pt-1">
                 {[
-                  { label: 'Léger', val: 15 },
-                  { label: 'Standard', val: 30 },
-                  { label: 'Fort', val: 50 },
-                  { label: 'Intense', val: 75 },
+                  { label: t('settings.presetLight'), val: 15 },
+                  { label: t('settings.presetStandard'), val: 30 },
+                  { label: t('settings.presetStrong'), val: 50 },
+                  { label: t('settings.presetIntense'), val: 75 },
                 ].map((preset) => (
                   <button
                     key={preset.val}
@@ -278,7 +280,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
           {(settings.maskMode === 'logo' || settings.maskMode === 'hybrid') && (
             <div className="mt-4 pt-3 border-t border-slate-700/50">
               <span className="text-xs text-slate-300 font-medium block mb-2">
-                Sticker / Logo de masquage de visage:
+                {t('settings.stickerTitle')}
               </span>
               <div className="flex items-center gap-3">
                 {settings.faceLogoUrl ? (
@@ -291,7 +293,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
                     <button
                       type="button"
                       onClick={handleRemoveLogo}
-                      title="Supprimer le sticker"
+                      title={t('settings.stickerDelete')}
                       className="absolute inset-0 bg-red-600/80 text-white opacity-0 hover:opacity-100 flex items-center justify-center transition-opacity"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -299,7 +301,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
                   </div>
                 ) : (
                   <div className="h-12 w-12 rounded-lg border border-dashed border-slate-600 bg-slate-800/40 flex items-center justify-center text-slate-500 text-xs text-center p-1">
-                    Bouclier Défaut
+                    {t('settings.stickerDefault')}
                   </div>
                 )}
 
@@ -316,7 +318,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
                   onClick={() => logoInputRef.current?.click()}
                   className="rounded-lg bg-slate-700 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-600 transition-colors"
                 >
-                  {settings.faceLogoUrl ? 'Remplacer l’image' : 'Importer un logo/sticker (PNG/SVG)'}
+                  {settings.faceLogoUrl ? t('settings.stickerReplace') : t('settings.stickerUpload')}
                 </button>
               </div>
             </div>
@@ -328,7 +330,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
           <div className="flex items-center justify-between">
             <label className="text-sm font-semibold text-slate-200 flex items-center gap-2">
               <Maximize2 className="h-4 w-4 text-emerald-400" />
-              Marge de sécurité du visage (Padding)
+              {t('settings.paddingTitle')}
             </label>
             <span className="font-mono text-xs font-bold text-emerald-400">
               +{settings.facePadding} %
@@ -336,7 +338,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
           </div>
 
           <p className="mt-1 text-xs text-slate-400">
-            Étend la boîte de flou au-delà des yeux/menton pour englober le front, la chevelure et les oreilles.
+            {t('settings.paddingSubtitle')}
           </p>
 
           <div className="mt-3 flex items-center gap-4">
@@ -359,7 +361,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
           <div className="flex items-center justify-between">
             <label className="text-sm font-semibold text-slate-200 flex items-center gap-2">
               <Stamp className="h-4 w-4 text-amber-400" />
-              Filigrane Global (Watermark)
+              {t('settings.watermarkTitle')}
             </label>
             <label className="relative inline-flex items-center cursor-pointer">
               <input
@@ -377,7 +379,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
               {/* Logo Watermark Upload */}
               <div>
                 <span className="text-xs text-slate-300 font-medium block mb-2">
-                  Image du filigrane:
+                  {t('settings.watermarkImage')}
                 </span>
                 <div className="flex items-center gap-3">
                   {settings.watermarkUrl ? (
@@ -390,7 +392,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
                       <button
                         type="button"
                         onClick={handleRemoveWatermark}
-                        title="Supprimer le filigrane"
+                        title={t('settings.watermarkDelete')}
                         className="absolute inset-0 bg-red-600/80 text-white opacity-0 hover:opacity-100 flex items-center justify-center transition-opacity"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -398,7 +400,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
                     </div>
                   ) : (
                     <div className="h-8 rounded bg-slate-800 px-2 flex items-center text-[10px] text-slate-400 border border-slate-700">
-                      Badge "SafeFace Zero" (par défaut)
+                      {t('settings.watermarkDefault')}
                     </div>
                   )}
 
@@ -415,7 +417,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
                     onClick={() => watermarkInputRef.current?.click()}
                     className="rounded-lg bg-slate-700 px-3 py-1 text-xs font-medium text-slate-200 hover:bg-slate-600 transition-colors"
                   >
-                    {settings.watermarkUrl ? 'Modifier' : 'Importer image'}
+                    {settings.watermarkUrl ? t('settings.watermarkModify') : t('settings.watermarkUpload')}
                   </button>
                 </div>
               </div>
@@ -423,16 +425,16 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
               {/* Watermark Position */}
               <div>
                 <span className="text-xs text-slate-300 font-medium block mb-2">
-                  Position sur le média:
+                  {t('settings.watermarkPosition')}
                 </span>
                 <div className="grid grid-cols-5 gap-1.5">
                   {(
                     [
-                      { id: 'top-left', label: 'Haut Gauche' },
-                      { id: 'top-right', label: 'Haut Droite' },
-                      { id: 'center', label: 'Centre' },
-                      { id: 'bottom-left', label: 'Bas Gauche' },
-                      { id: 'bottom-right', label: 'Bas Droite' },
+                      { id: 'top-left', label: t('settings.posTopLeft') },
+                      { id: 'top-right', label: t('settings.posTopRight') },
+                      { id: 'center', label: t('settings.posCenter') },
+                      { id: 'bottom-left', label: t('settings.posBottomLeft') },
+                      { id: 'bottom-right', label: t('settings.posBottomRight') },
                     ] as { id: WatermarkPosition; label: string }[]
                   ).map((pos) => (
                     <button
@@ -455,7 +457,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <div className="flex justify-between items-center text-xs mb-1">
-                    <span className="text-slate-300 font-medium">Opacité:</span>
+                    <span className="text-slate-300 font-medium">{t('settings.watermarkOpacity')}</span>
                     <span className="font-mono text-blue-400 font-semibold">
                       {settings.watermarkOpacity} %
                     </span>
@@ -473,7 +475,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
 
                 <div>
                   <div className="flex justify-between items-center text-xs mb-1">
-                    <span className="text-slate-300 font-medium">Échelle relative:</span>
+                    <span className="text-slate-300 font-medium">{t('settings.watermarkScale')}</span>
                     <span className="font-mono text-blue-400 font-semibold">
                       {settings.watermarkScale} %
                     </span>
@@ -499,26 +501,26 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
             <div className="flex items-center gap-2">
               <Zap className="h-4 w-4 text-amber-400" />
               <label className="text-sm font-semibold text-slate-200">
-                Optimisations Vidéo & Anti-OOM
+                {t('settings.videoOptimTitle')}
               </label>
             </div>
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium bg-slate-900 border border-slate-700 text-slate-300">
               {deviceProfile.isMobile ? (
                 <>
                   <Smartphone className="h-3 w-3 text-emerald-400" />
-                  <span>Mobile ({deviceProfile.cores} cœurs)</span>
+                  <span>{t('settings.mobileCores', { cores: deviceProfile.cores })}</span>
                 </>
               ) : (
                 <>
                   <Cpu className="h-3 w-3 text-blue-400" />
-                  <span>{deviceProfile.cores} cœurs • {deviceProfile.memoryGb} Go RAM</span>
+                  <span>{t('settings.desktopCores', { cores: deviceProfile.cores, ram: deviceProfile.memoryGb })}</span>
                 </>
               )}
             </div>
           </div>
 
           <p className="mt-1 text-xs text-slate-400">
-            Évite les dépassements de mémoire vive (OOM) et les blocages du navigateur sur smartphone et ordinateurs portables.
+            {t('settings.videoOptimSubtitle')}
           </p>
 
           <div className="mt-4 space-y-4">
@@ -526,15 +528,15 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
             <div className="flex items-center justify-between rounded-lg bg-slate-900/60 p-3 border border-slate-800">
               <div className="space-y-0.5">
                 <span className="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
-                  Mode Éco & Basse Consommation
+                  {t('settings.ecoModeTitle')}
                   {settings.videoEcoMode && (
                     <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/30">
-                      Actif
+                      {t('settings.ecoModeActive')}
                     </span>
                   )}
                 </span>
                 <p className="text-[11px] text-slate-400">
-                  Résolution 480p, encodage ultra-rapide et pauses anti-freeze (recommandé).
+                  {t('settings.ecoModeDesc')}
                 </p>
               </div>
               <input
@@ -548,7 +550,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
             {/* Max Resolution Selector */}
             <div>
               <div className="flex justify-between items-center text-xs mb-1.5">
-                <span className="text-slate-300 font-medium">Résolution max du traitement :</span>
+                <span className="text-slate-300 font-medium">{t('settings.maxResolution')}</span>
                 <span className="font-mono text-blue-400 font-semibold">{settings.videoMaxResolution}</span>
               </div>
               <div className="grid grid-cols-3 gap-2">
@@ -563,7 +565,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
                         : 'bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-700'
                     }`}
                   >
-                    {res} {res === '480p' ? '(Léger)' : res === '720p' ? '(Équilibré)' : '(HD)'}
+                    {res} {res === '480p' ? t('settings.resLight') : res === '720p' ? t('settings.resBalanced') : t('settings.resHd')}
                   </button>
                 ))}
               </div>
@@ -573,10 +575,10 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
             <div className="flex items-center justify-between rounded-lg bg-slate-900/60 p-3 border border-slate-800">
               <div className="space-y-0.5">
                 <span className="text-xs font-semibold text-slate-200">
-                  Accélération IA (Interpolation 1 frame / 2)
+                  {t('settings.frameSkipTitle')}
                 </span>
                 <p className="text-[11px] text-slate-400">
-                  Divise par deux la charge WebGL en suivant les visages entre les frames.
+                  {t('settings.frameSkipDesc')}
                 </p>
               </div>
               <input
@@ -590,7 +592,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
             {/* Video FPS Slider */}
             <div>
               <div className="flex justify-between items-center text-xs mb-1">
-                <span className="text-slate-300 font-medium">Cadence d'analyse vidéo :</span>
+                <span className="text-slate-300 font-medium">{t('settings.fpsTitle')}</span>
                 <span className="font-mono text-blue-400 font-semibold">{settings.videoFps} fps</span>
               </div>
               <input
@@ -603,9 +605,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
                 className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
               />
               <div className="flex justify-between text-[10px] text-slate-500 mt-1">
-                <span>6 fps (Ultra-léger)</span>
-                <span>8 fps (Standard)</span>
-                <span>15 fps (Fluide)</span>
+                <span>{t('settings.fpsUltraLight')}</span>
+                <span>{t('settings.fpsStandard')}</span>
+                <span>{t('settings.fpsFluid')}</span>
               </div>
             </div>
           </div>

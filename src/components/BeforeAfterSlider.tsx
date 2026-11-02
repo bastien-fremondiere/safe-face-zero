@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Play, Pause, RotateCcw, MoveHorizontal, Shield, Sparkles } from 'lucide-react';
+import { useI18n } from '../i18n/I18nContext';
 
 interface BeforeAfterSliderProps {
   type: 'image' | 'video';
@@ -13,6 +14,7 @@ export const BeforeAfterSlider: React.FC<BeforeAfterSliderProps> = ({
   originalUrl,
   anonymizedUrl,
 }) => {
+  const { t } = useI18n();
   const [sliderPosition, setSliderPosition] = useState<number>(50); // 0 to 100%, default 50%
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -129,15 +131,15 @@ export const BeforeAfterSlider: React.FC<BeforeAfterSliderProps> = ({
       <div className="w-full flex items-center justify-between pb-3 text-xs text-slate-400">
         <div className="flex items-center gap-1.5 font-medium">
           <MoveHorizontal className="h-4 w-4 text-blue-400 animate-pulse" />
-          <span>Glissez le séparateur de gauche à droite pour comparer en temps réel :</span>
+          <span>{t('slider.instruction')}</span>
         </div>
 
         {/* Quick jump presets */}
         <div className="flex items-center gap-1.5">
           {[
-            { label: 'Original', pos: 100 },
-            { label: '50% (Diff)', pos: 50 },
-            { label: 'Anonymisé', pos: 0 },
+            { label: t('slider.original'), pos: 100 },
+            { label: t('slider.diff50'), pos: 50 },
+            { label: t('slider.anonymized'), pos: 0 },
           ].map((preset) => (
             <button
               key={preset.label}
@@ -187,7 +189,7 @@ export const BeforeAfterSlider: React.FC<BeforeAfterSliderProps> = ({
           <div className="absolute top-4 right-4 z-10 pointer-events-none">
             <span className="flex items-center gap-1.5 rounded-full bg-blue-950/85 border border-blue-400/40 px-3 py-1 text-xs font-bold text-blue-300 shadow-lg backdrop-blur-md">
               <Shield className="h-3.5 w-3.5 text-blue-400" />
-              APRÈS (ANONYMISÉ)
+              {t('preview.afterAnonymized')}
             </span>
           </div>
         </div>
@@ -221,7 +223,7 @@ export const BeforeAfterSlider: React.FC<BeforeAfterSliderProps> = ({
           <div className="absolute top-4 left-4 z-10 pointer-events-none">
             <span className="flex items-center gap-1.5 rounded-full bg-slate-900/85 border border-slate-600 px-3 py-1 text-xs font-bold text-slate-300 shadow-lg backdrop-blur-md">
               <Sparkles className="h-3.5 w-3.5 text-amber-400" />
-              AVANT (ORIGINAL)
+              {t('preview.beforeOriginal')}
             </span>
           </div>
         </div>
@@ -245,7 +247,7 @@ export const BeforeAfterSlider: React.FC<BeforeAfterSliderProps> = ({
             type="button"
             onClick={togglePlay}
             className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-colors"
-            title={isPlaying ? 'Pause' : 'Lecture'}
+            title={isPlaying ? t('slider.pause') : t('slider.play')}
           >
             {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 fill-current ml-0.5" />}
           </button>
@@ -254,7 +256,7 @@ export const BeforeAfterSlider: React.FC<BeforeAfterSliderProps> = ({
             type="button"
             onClick={handleRestart}
             className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
-            title="Recommencer"
+            title={t('slider.restart')}
           >
             <RotateCcw className="h-3.5 w-3.5" />
           </button>

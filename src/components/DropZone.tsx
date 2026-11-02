@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { UploadCloud, Image, Film, Archive, Sparkles, User, Users, Video } from 'lucide-react';
 import { getAssetBaseUrl } from '../utils/performance';
+import { useI18n } from '../i18n/I18nContext';
 
 interface DropZoneProps {
   onFilesAdded: (files: File[]) => void;
@@ -8,6 +9,7 @@ interface DropZoneProps {
 }
 
 export const DropZone: React.FC<DropZoneProps> = ({ onFilesAdded, disabled }) => {
+  const { t } = useI18n();
   const [isDragOver, setIsDragOver] = useState(false);
   const [isLoadingSample, setIsLoadingSample] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -105,7 +107,7 @@ export const DropZone: React.FC<DropZoneProps> = ({ onFilesAdded, disabled }) =>
       ctx.fillStyle = '#94a3b8';
       ctx.font = 'bold 20px system-ui';
       ctx.textAlign = 'center';
-      ctx.fillText('Échantillon de test synthétique', 320, 420);
+      ctx.fillText(t('dropzone.syntheticSample'), 320, 420);
     }
 
     sampleCanvas.toBlob((blob) => {
@@ -149,27 +151,27 @@ export const DropZone: React.FC<DropZoneProps> = ({ onFilesAdded, disabled }) =>
           </div>
 
           <h3 className="text-lg md:text-xl font-bold text-white tracking-tight">
-            Glissez-déposez vos fichiers ici
+            {t('dropzone.dropTitle')}
           </h3>
           <p className="mt-1.5 text-xs text-slate-400 max-w-md">
-            ou cliquez pour parcourir vos dossiers. Traitement simultané d'images, vidéos et archives ZIP.
+            {t('dropzone.dropSubtitle')}
           </p>
 
           {/* Format indicators */}
           <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
             <div className="flex items-center gap-1.5 rounded-lg bg-slate-800/80 px-2.5 py-1 text-[11px] font-medium text-slate-300 border border-slate-700/60">
               <Image className="h-3.5 w-3.5 text-emerald-400" />
-              <span>Images (JPG, PNG, WEBP, AVIF)</span>
+              <span>{t('dropzone.images')}</span>
             </div>
 
             <div className="flex items-center gap-1.5 rounded-lg bg-slate-800/80 px-2.5 py-1 text-[11px] font-medium text-slate-300 border border-slate-700/60">
               <Film className="h-3.5 w-3.5 text-indigo-400" />
-              <span>Vidéos (MP4, MKV, AVI, MOV, WEBM)</span>
+              <span>{t('dropzone.videos')}</span>
             </div>
 
             <div className="flex items-center gap-1.5 rounded-lg bg-slate-800/80 px-2.5 py-1 text-[11px] font-medium text-slate-300 border border-slate-700/60">
               <Archive className="h-3.5 w-3.5 text-amber-400" />
-              <span>Archives (.ZIP auto-extrait)</span>
+              <span>{t('dropzone.archives')}</span>
             </div>
           </div>
         </div>
@@ -180,7 +182,7 @@ export const DropZone: React.FC<DropZoneProps> = ({ onFilesAdded, disabled }) =>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
           <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
             <Sparkles className="h-3.5 w-3.5 text-blue-400" />
-            <span>Tester immédiatement avec nos jeux de démonstration :</span>
+            <span>{t('dropzone.samplesTitle')}</span>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -189,10 +191,10 @@ export const DropZone: React.FC<DropZoneProps> = ({ onFilesAdded, disabled }) =>
               disabled={disabled || isLoadingSample}
               onClick={() => handleLoadSampleFile('test-child-single.jpg', 'enfant_7ans.jpg', 'image/jpeg')}
               className="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-50 px-2.5 py-1 text-xs font-medium text-slate-200 border border-slate-700 transition-colors"
-              title="1 Enfant seul (7 ans) -> 1 flou attendu"
+              title={t('dropzone.sample1ChildTitle')}
             >
               <User className="h-3 w-3 text-blue-400" />
-              1 Enfant (7 ans)
+              {t('dropzone.sample1Child')}
             </button>
 
             <button
@@ -200,10 +202,10 @@ export const DropZone: React.FC<DropZoneProps> = ({ onFilesAdded, disabled }) =>
               disabled={disabled || isLoadingSample}
               onClick={() => handleLoadSampleFile('test-two-children.jpg', 'deux_enfants_ecole.jpg', 'image/jpeg')}
               className="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-50 px-2.5 py-1 text-xs font-medium text-slate-200 border border-slate-700 transition-colors"
-              title="2 Enfants -> 2 flous attendus"
+              title={t('dropzone.sample2ChildrenTitle')}
             >
               <Users className="h-3 w-3 text-emerald-400" />
-              2 Enfants (8-10 ans)
+              {t('dropzone.sample2Children')}
             </button>
 
             <button
@@ -211,10 +213,10 @@ export const DropZone: React.FC<DropZoneProps> = ({ onFilesAdded, disabled }) =>
               disabled={disabled || isLoadingSample}
               onClick={() => handleLoadSampleFile('test-adult-and-child.jpg', 'pere_et_fille.jpg', 'image/jpeg')}
               className="inline-flex items-center gap-1.5 rounded-lg bg-amber-950/40 hover:bg-amber-900/50 border border-amber-500/40 disabled:opacity-50 px-2.5 py-1 text-xs font-medium text-amber-200 transition-colors"
-              title="Père & Fille -> 1 seul flou (enfant) et adulte préservé"
+              title={t('dropzone.sampleAdultChildTitle')}
             >
               <User className="h-3 w-3 text-amber-400" />
-              Père & Fille (Mixte)
+              {t('dropzone.sampleAdultChild')}
             </button>
 
             <button
@@ -222,10 +224,10 @@ export const DropZone: React.FC<DropZoneProps> = ({ onFilesAdded, disabled }) =>
               disabled={disabled || isLoadingSample}
               onClick={() => handleLoadSampleFile('test-teacher-and-students.jpg', 'classe_prof_et_eleves.jpg', 'image/jpeg')}
               className="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-50 px-2.5 py-1 text-xs font-medium text-slate-200 border border-slate-700 transition-colors"
-              title="1 Professeure + 3 Élèves -> 3 flous et 1 adulte préservé"
+              title={t('dropzone.sampleClassTitle')}
             >
               <Users className="h-3 w-3 text-indigo-400" />
-              Classe (1 Prof + 3 Élèves)
+              {t('dropzone.sampleClass')}
             </button>
 
             <button
@@ -233,10 +235,10 @@ export const DropZone: React.FC<DropZoneProps> = ({ onFilesAdded, disabled }) =>
               disabled={disabled || isLoadingSample}
               onClick={() => handleLoadSampleFile('sample-face-walking.webm', 'video_enfant_anime.webm', 'video/webm')}
               className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-950/60 hover:bg-indigo-900/70 border border-indigo-500/40 disabled:opacity-50 px-2.5 py-1 text-xs font-semibold text-indigo-200 transition-colors"
-              title="Vidéo avec enfant en mouvement"
+              title={t('dropzone.sampleVideoTitle')}
             >
               <Video className="h-3 w-3 text-indigo-400" />
-              Clip Vidéo (WebM)
+              {t('dropzone.sampleVideo')}
             </button>
           </div>
         </div>

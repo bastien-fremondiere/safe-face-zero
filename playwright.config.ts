@@ -13,6 +13,7 @@ export default defineConfig({
     baseURL: 'http://localhost:4173',
     trace: 'off',
     viewport: { width: 1280, height: 850 },
+    locale: 'fr-FR',
   },
   projects: [
     {

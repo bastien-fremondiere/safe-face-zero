@@ -14,6 +14,7 @@ import {
 import fileSaver from 'file-saver';
 import { QueueItem } from '../types';
 import { BeforeAfterSlider } from './BeforeAfterSlider';
+import { useI18n } from '../i18n/I18nContext';
 
 const saveAs = (fileSaver as unknown as { saveAs?: typeof fileSaver }).saveAs || fileSaver;
 
@@ -34,6 +35,7 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
   onReprocess,
   isProcessing = false,
 }) => {
+  const { t } = useI18n();
   // Default to interactive slider at 50%
   const [viewMode, setViewMode] = useState<'slider' | 'side-by-side' | 'anonymized-only'>('slider');
   const [originalUrl, setOriginalUrl] = useState<string | null>(null);
@@ -84,19 +86,19 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
             </div>
             <div>
               <h3 className="text-sm sm:text-base font-bold text-white truncate max-w-xs sm:max-w-md">
-                Aperçu : {item.name}
+                {t('preview.title', { name: item.name })}
               </h3>
               <div className="flex items-center gap-2 text-xs text-slate-400">
                 <span className="flex items-center gap-1 text-emerald-400 font-medium">
                   <CheckCircle2 className="h-3.5 w-3.5" />
-                  Traitement local réussi
+                  {t('preview.success')}
                 </span>
                 {item.facesMasked !== undefined && (
                   <>
                     <span>•</span>
                     <span className="flex items-center gap-1 text-blue-400">
                       <Shield className="h-3 w-3" />
-                      {item.facesMasked} visage(s) masqué(s)
+                      {t('preview.facesMaskedCount', { count: item.facesMasked })}
                     </span>
                   </>
                 )}
@@ -115,10 +117,10 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
                     ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
-                title="Curseur interactif Diff Avant/Après"
+                title={t('preview.sliderTitle')}
               >
                 <SlidersHorizontal className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Slider Diff 50%</span>
+                <span className="hidden sm:inline">{t('preview.slider50')}</span>
               </button>
 
               <button
@@ -129,10 +131,10 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
                     ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
-                title="Vue côte-à-côte"
+                title={t('preview.sideBySideTitle')}
               >
                 <Columns className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Côte-à-côte</span>
+                <span className="hidden sm:inline">{t('preview.sideBySide')}</span>
               </button>
             </div>
 
@@ -143,7 +145,7 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
               className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs px-3 py-1.5 shadow-md shadow-emerald-600/20 transition-colors"
             >
               <Download className="h-3.5 w-3.5" />
-              Télécharger
+              {t('preview.download')}
             </button>
 
             {/* Close */}
@@ -173,8 +175,8 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
               {/* Original */}
               <div className="flex flex-col rounded-xl border border-slate-800 bg-slate-900/60 overflow-hidden">
                 <div className="px-3 py-2 bg-slate-850 border-b border-slate-800 text-xs font-semibold text-slate-400 flex justify-between items-center">
-                  <span>AVANT (ORIGINAL)</span>
-                  <span className="text-[10px] text-slate-500">Média source</span>
+                  <span>{t('preview.beforeOriginal')}</span>
+                  <span className="text-[10px] text-slate-500">{t('preview.sourceMedia')}</span>
                 </div>
                 <div className="flex-1 flex items-center justify-center p-3 bg-black/40 min-h-[280px]">
                   {item.type === 'video' ? (
@@ -202,9 +204,9 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
                 <div className="px-3 py-2 bg-blue-950/40 border-b border-blue-500/20 text-xs font-semibold text-blue-300 flex justify-between items-center">
                   <span className="flex items-center gap-1.5">
                     <Shield className="h-3.5 w-3.5 text-blue-400" />
-                    APRÈS (ANONYMISÉ)
+                    {t('preview.afterAnonymized')}
                   </span>
-                  <span className="text-[10px] text-emerald-400 font-mono">100% LOCAL</span>
+                  <span className="text-[10px] text-emerald-400 font-mono">{t('preview.local100')}</span>
                 </div>
                 <div className="flex-1 flex items-center justify-center p-3 bg-black/40 min-h-[280px]">
                   {item.type === 'video' ? (
@@ -253,7 +255,7 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
           <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
             <span className="text-slate-300 font-semibold shrink-0 flex items-center gap-1.5 bg-slate-800/80 px-2 py-1 rounded-lg border border-slate-700">
               <EyeOff className="h-3.5 w-3.5 text-blue-400" />
-              Flou : <span className="font-mono text-blue-400 font-bold">{blurRadius ?? 30} px</span>
+              {t('preview.blurLabel')} <span className="font-mono text-blue-400 font-bold">{blurRadius ?? 30} px</span>
             </span>
 
             {onUpdateBlur && (
@@ -266,7 +268,7 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
                   value={blurRadius ?? 30}
                   onChange={(e) => onUpdateBlur(Number(e.target.value))}
                   className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                  title="Ajuster la puissance du flou gaussien"
+                  title={t('preview.blurSliderTitle')}
                 />
               </div>
             )}
@@ -277,17 +279,17 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
                 disabled={isProcessing}
                 onClick={() => onReprocess(item.id)}
                 className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/40 text-blue-300 disabled:opacity-50 px-2.5 py-1 text-xs font-semibold transition-colors cursor-pointer shadow-sm"
-                title="Recalculer le masque avec le nouveau niveau de flou"
+                title={t('preview.recalculateTitle')}
               >
                 {isProcessing ? (
                   <>
                     <Loader2 className="h-3 w-3 animate-spin" />
-                    <span>Calcul...</span>
+                    <span>{t('preview.calculating')}</span>
                   </>
                 ) : (
                   <>
                     <RotateCcw className="h-3 w-3" />
-                    <span>Appliquer ce flou</span>
+                    <span>{t('preview.recalculate')}</span>
                   </>
                 )}
               </button>
@@ -302,14 +304,14 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
               className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs px-3.5 py-1.5 transition-all cursor-pointer shadow-md shadow-emerald-600/20"
             >
               <Download className="h-3.5 w-3.5" />
-              Télécharger
+              {t('preview.download')}
             </button>
             <button
               type="button"
               onClick={onClose}
               className="rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium px-3 py-1.5 transition-colors cursor-pointer border border-slate-700"
             >
-              Fermer
+              {t('preview.close')}
             </button>
           </div>
         </div>

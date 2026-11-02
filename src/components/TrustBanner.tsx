@@ -1,5 +1,6 @@
 import React from 'react';
 import { ShieldCheck, Cpu, HardDrive, Lock } from 'lucide-react';
+import { useI18n } from '../i18n/I18nContext';
 
 interface TrustBannerProps {
   isModelLoaded: boolean;
@@ -14,6 +15,8 @@ export const TrustBanner: React.FC<TrustBannerProps> = ({
   isFFmpegLoaded,
   isFFmpegLoading,
 }) => {
+  const { t } = useI18n();
+
   return (
     <div className="relative overflow-hidden rounded-2xl border border-blue-500/20 bg-gradient-to-r from-blue-950/40 via-slate-900/60 to-indigo-950/40 p-4 md:p-6 shadow-xl backdrop-blur-md">
       <div className="absolute -top-12 -right-12 h-36 w-36 rounded-full bg-blue-500/10 blur-2xl pointer-events-none" />
@@ -26,16 +29,14 @@ export const TrustBanner: React.FC<TrustBannerProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-base md:text-lg font-bold text-white tracking-wide">
-                Garantie 100% Zero-Server & Conforme RGPD
+                {t('trust.title')}
               </h2>
               <span className="inline-flex items-center rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs font-semibold text-emerald-400 border border-emerald-500/30">
-                100% Local
+                {t('trust.badge')}
               </span>
             </div>
             <p className="mt-1 text-xs md:text-sm text-slate-300 leading-relaxed max-w-2xl">
-              Tous les traitements (détection faciale par réseau neuronal, floutage et encodage vidéo) s’exécutent
-              exclusivement dans la mémoire vive de votre navigateur. Aucune donnée, photo ou vidéo n’est transmise
-              à aucun serveur externe.
+              {t('trust.description')}
             </p>
           </div>
         </div>
@@ -44,37 +45,37 @@ export const TrustBanner: React.FC<TrustBannerProps> = ({
         <div className="flex flex-wrap items-center gap-2 self-stretch md:self-auto pt-2 md:pt-0 border-t md:border-t-0 border-slate-800">
           <div className="flex items-center gap-2 rounded-lg bg-slate-800/80 px-3 py-1.5 text-xs border border-slate-700/60">
             <Cpu className="h-3.5 w-3.5 text-indigo-400" />
-            <span className="text-slate-300 font-medium">IA Face-API:</span>
+            <span className="text-slate-300 font-medium">{t('trust.aiEngine')}</span>
             {isModelLoaded ? (
               <span className="text-emerald-400 font-semibold flex items-center gap-1">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Prêt (WebGL)
+                {t('trust.readyWebgl')}
               </span>
             ) : isModelLoading ? (
-              <span className="text-amber-400 font-medium">Chargement...</span>
+              <span className="text-amber-400 font-medium">{t('trust.loading')}</span>
             ) : (
-              <span className="text-slate-400">En attente</span>
+              <span className="text-slate-400">{t('trust.waiting')}</span>
             )}
           </div>
 
           <div className="flex items-center gap-2 rounded-lg bg-slate-800/80 px-3 py-1.5 text-xs border border-slate-700/60">
             <HardDrive className="h-3.5 w-3.5 text-cyan-400" />
-            <span className="text-slate-300 font-medium">FFmpeg WASM:</span>
+            <span className="text-slate-300 font-medium">{t('trust.ffmpegEngine')}</span>
             {isFFmpegLoaded ? (
               <span className="text-emerald-400 font-semibold flex items-center gap-1">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Prêt
+                {t('trust.ready')}
               </span>
             ) : isFFmpegLoading ? (
-              <span className="text-amber-400 font-medium">Chargement...</span>
+              <span className="text-amber-400 font-medium">{t('trust.loading')}</span>
             ) : (
-              <span className="text-slate-400">À la demande</span>
+              <span className="text-slate-400">{t('trust.onDemand')}</span>
             )}
           </div>
 
           <div className="hidden lg:flex items-center gap-1.5 text-xs text-slate-400 px-2">
             <Lock className="h-3.5 w-3.5 text-slate-500" />
-            <span>Isolation active</span>
+            <span>{t('trust.isolationActive')}</span>
           </div>
         </div>
       </div>

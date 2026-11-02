@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import fileSaver from 'file-saver';
 import { QueueItem } from '../types';
+import { useI18n } from '../i18n/I18nContext';
 
 const saveAs = (fileSaver as unknown as { saveAs?: typeof fileSaver }).saveAs || fileSaver;
 
@@ -45,6 +46,8 @@ export const MediaQueue: React.FC<MediaQueueProps> = ({
   onOpenPreview,
   onCancelProcessing,
 }) => {
+  const { t } = useI18n();
+
   if (queue.length === 0) {
     return null;
   }
@@ -69,7 +72,7 @@ export const MediaQueue: React.FC<MediaQueueProps> = ({
   const formatSize = (bytes: number) => {
     if (bytes === 0) return '0 B';
     const k = 1024;
-    const sizes = ['B', 'Ko', 'Mo', 'Go'];
+    const sizes = ['B', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
   };
@@ -81,10 +84,14 @@ export const MediaQueue: React.FC<MediaQueueProps> = ({
         <div>
           <h3 className="text-lg font-bold text-white tracking-wide flex items-center gap-2">
             <FileText className="h-5 w-5 text-blue-400" />
-            File d'attente ({queue.length} fichier{queue.length > 1 ? 's' : ''})
+            {t('queue.title', { count: queue.length, plural: queue.length > 1 ? 's' : '' })}
           </h3>
           <p className="text-xs text-slate-400 mt-0.5">
-            {completedCount} traité{completedCount > 1 ? 's' : ''} sur {queue.length}
+            {t('queue.processedCount', {
+              done: completedCount,
+              donePlural: completedCount > 1 ? 's' : '',
+              total: queue.length,
+            })}
           </p>
         </div>
 
@@ -94,10 +101,10 @@ export const MediaQueue: React.FC<MediaQueueProps> = ({
               type="button"
               onClick={onCancelProcessing}
               className="inline-flex items-center gap-1.5 rounded-xl bg-red-950/60 hover:bg-red-900/80 border border-red-500/40 text-red-200 font-semibold text-xs px-3 py-2.5 transition-colors cursor-pointer"
-              title="Arrêter immédiatement le traitement"
+              title={t('queue.stopTitle')}
             >
               <XCircle className="h-4 w-4 text-red-400" />
-              Arrêter
+              {t('queue.stop')}
             </button>
           )}
 
@@ -111,12 +118,12 @@ export const MediaQueue: React.FC<MediaQueueProps> = ({
               {isProcessing ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Traitement en cours...
+                  {t('queue.processing')}
                 </>
               ) : (
                 <>
                   <Play className="h-4 w-4 fill-current" />
-                  Tout anonymiser ({pendingCount})
+                  {t('queue.processAll', { count: pendingCount })}
                 </>
               )}
             </button>
@@ -129,7 +136,7 @@ export const MediaQueue: React.FC<MediaQueueProps> = ({
               className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs px-4 py-2.5 shadow-lg shadow-emerald-600/20 transition-all cursor-pointer"
             >
               <Archive className="h-4 w-4" />
-              Tout exporter en .zip
+              {t('queue.exportZip')}
             </button>
           )}
 
@@ -138,10 +145,10 @@ export const MediaQueue: React.FC<MediaQueueProps> = ({
             disabled={isProcessing}
             onClick={onClearQueue}
             className="inline-flex items-center gap-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-xs px-3 py-2.5 transition-colors cursor-pointer"
-            title="Vider la liste"
+            title={t('queue.clearTitle')}
           >
             <RotateCcw className="h-3.5 w-3.5" />
-            Vider
+            {t('queue.clear')}
           </button>
         </div>
       </div>
@@ -208,7 +215,7 @@ export const MediaQueue: React.FC<MediaQueueProps> = ({
                   {item.status === 'idle' && (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-400 border border-slate-700">
                       <Clock className="h-3.5 w-3.5" />
-                      En attente
+                      {t('queue.idle')}
                     </span>
                   )}
 
@@ -223,11 +230,14 @@ export const MediaQueue: React.FC<MediaQueueProps> = ({
                     <div className="flex items-center gap-2">
                       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-1 text-xs font-semibold text-emerald-400 border border-emerald-500/30">
                         <CheckCircle2 className="h-3.5 w-3.5" />
-                        Succès
+                        {t('queue.success')}
                       </span>
                       {item.facesMasked !== undefined && (
                         <span className="hidden md:inline-flex rounded-md bg-slate-800 px-2 py-0.5 text-[11px] text-slate-300 border border-slate-700">
-                          {item.facesMasked} visage{item.facesMasked > 1 ? 's' : ''} masqué{item.facesMasked > 1 ? 's' : ''}
+                          {t('queue.facesMaskedCount', {
+                            count: item.facesMasked,
+                            plural: item.facesMasked > 1 ? 's' : '',
+                          })}
                         </span>
                       )}
                     </div>
@@ -236,7 +246,7 @@ export const MediaQueue: React.FC<MediaQueueProps> = ({
                   {item.status === 'error' && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-red-500/15 px-2.5 py-1 text-xs font-semibold text-red-400 border border-red-500/30">
                       <AlertCircle className="h-3.5 w-3.5" />
-                      Erreur
+                      {t('queue.error')}
                     </span>
                   )}
 
@@ -247,7 +257,7 @@ export const MediaQueue: React.FC<MediaQueueProps> = ({
                         type="button"
                         onClick={() => onProcessItem(item.id)}
                         className="rounded-lg bg-blue-600/80 hover:bg-blue-600 p-2 text-white transition-colors cursor-pointer"
-                        title="Anonymiser ce fichier"
+                        title={t('queue.anonymizeOne')}
                       >
                         <Play className="h-3.5 w-3.5 fill-current" />
                       </button>
@@ -260,7 +270,7 @@ export const MediaQueue: React.FC<MediaQueueProps> = ({
                             type="button"
                             onClick={() => onOpenPreview(item)}
                             className="rounded-lg bg-slate-800 hover:bg-blue-900/60 hover:text-blue-300 p-2 text-slate-200 transition-colors cursor-pointer border border-slate-700"
-                            title="Aperçu Comparatif (Slider Avant/Après)"
+                            title={t('queue.previewTitle')}
                           >
                             <Eye className="h-3.5 w-3.5" />
                           </button>
@@ -270,7 +280,7 @@ export const MediaQueue: React.FC<MediaQueueProps> = ({
                           type="button"
                           onClick={() => handleDownloadItem(item)}
                           className="rounded-lg bg-emerald-600/80 hover:bg-emerald-600 p-2 text-white transition-colors cursor-pointer"
-                          title="Télécharger"
+                          title={t('queue.download')}
                         >
                           <Download className="h-3.5 w-3.5" />
                         </button>
@@ -282,7 +292,7 @@ export const MediaQueue: React.FC<MediaQueueProps> = ({
                         type="button"
                         onClick={() => onRemoveItem(item.id)}
                         className="rounded-lg bg-slate-800 hover:bg-red-950/80 hover:text-red-400 p-2 text-slate-400 transition-colors cursor-pointer"
-                        title="Retirer de la liste"
+                        title={t('queue.remove')}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -295,7 +305,7 @@ export const MediaQueue: React.FC<MediaQueueProps> = ({
               {item.status === 'processing' && (
                 <div className="mt-3">
                   <div className="flex justify-between text-xs text-slate-400 mb-1">
-                    <span>{item.progressMessage || 'Traitement...'}</span>
+                    <span>{item.progressMessage || t('queue.processingFallback')}</span>
                     <span className="font-mono text-blue-400 font-semibold">{item.progress}%</span>
                   </div>
                   <div className="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden">
