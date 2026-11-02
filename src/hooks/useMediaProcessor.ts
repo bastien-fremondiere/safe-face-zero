@@ -1,0 +1,480 @@
+import { useState, useRef, useCallback } from 'react';
+import { fetchFile } from '@ffmpeg/util';
+import fileSaver from 'file-saver';
+import {
+  AnonymizationSettings,
+  QueueItem,
+  DetectedFace,
+} from '../types';
+import { useFaceApi } from './useFaceApi';
+import { useFFmpeg } from './useFFmpeg';
+import {
+  applyAnonymization,
+  createSourceCanvas,
+  loadImage,
+} from '../utils/canvasMasker';
+import {
+  extractZipFiles,
+  createAnonymizedZip,
+  getFileCategory,
+} from '../utils/zipHandler';
+
+const saveAs = (fileSaver as unknown as { saveAs?: typeof fileSaver }).saveAs || fileSaver;
+
+const DEFAULT_SETTINGS: AnonymizationSettings = {
+  ageThreshold: 16,
+  maskMode: 'blur',
+  blurRadius: 30,
+  facePadding: 15,
+  faceLogoUrl: null,
+  faceLogoImage: null,
+  watermarkEnabled: false,
+  watermarkUrl: null,
+  watermarkImage: null,
+  watermarkPosition: 'bottom-right',
+  watermarkOpacity: 80,
+  watermarkScale: 15,
+};
+
+export function useMediaProcessor() {
+  const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [activeItemId, setActiveItemId] = useState<string | null>(null);
+  const [settings, setSettings] = useState<AnonymizationSettings>(DEFAULT_SETTINGS);
+
+  const { isModelLoaded, isLoading: isModelLoading, loadError: modelError, detectFaces } = useFaceApi();
+  const { isLoaded: isFFmpegLoaded, isLoading: isFFmpegLoading, error: ffmpegError, loadFFmpeg } = useFFmpeg();
+
+  // Reference to cancel processing if needed
+  const cancelProcessingRef = useRef(false);
+
+  /**
+   * Update anonymization settings
+   */
+  const updateSettings = useCallback((partial: Partial<AnonymizationSettings>) => {
+    setSettings((prev) => ({ ...prev, ...partial }));
+  }, []);
+
+  /**
+   * Add files to queue (supports single, multiple, and ZIP files)
+   */
+  const addFilesToQueue = useCallback(async (files: File[]) => {
+    const newItems: QueueItem[] = [];
+
+    for (const file of files) {
+      const category = getFileCategory(file.name);
+
+      if (category === 'zip') {
+        try {
+          const extracted = await extractZipFiles(file);
+          for (const extFile of extracted) {
+            const extCat = getFileCategory(extFile.name);
+            if (extCat === 'image' || extCat === 'video') {
+              newItems.push({
+                id: crypto.randomUUID(),
+                file: extFile,
+                name: extFile.name,
+                type: extCat,
+                size: extFile.size,
+                status: 'idle',
+                progress: 0,
+              });
+            }
+          }
+        } catch (err) {
+          console.error('[SafeFace Zero] Erreur décompression ZIP:', err);
+          newItems.push({
+            id: crypto.randomUUID(),
+            file,
+            name: file.name,
+            type: 'zip',
+            size: file.size,
+            status: 'error',
+            progress: 0,
+            error: "Impossible d'extraire le fichier ZIP.",
+          });
+        }
+      } else if (category === 'image' || category === 'video') {
+        newItems.push({
+          id: crypto.randomUUID(),
+          file,
+          name: file.name,
+          type: category,
+          size: file.size,
+          status: 'idle',
+          progress: 0,
+        });
+      }
+    }
+
+    setQueue((prev) => [...prev, ...newItems]);
+  }, []);
+
+  /**
+   * Remove item from queue and revoke object URLs
+   */
+  const removeFromQueue = useCallback((id: string) => {
+    setQueue((prev) => {
+      const item = prev.find((i) => i.id === id);
+      if (item?.resultUrl) {
+        URL.revokeObjectURL(item.resultUrl);
+      }
+      return prev.filter((i) => i.id !== id);
+    });
+  }, []);
+
+  /**
+   * Clear all items in queue
+   */
+  const clearQueue = useCallback(() => {
+    setQueue((prev) => {
+      prev.forEach((item) => {
+        if (item.resultUrl) URL.revokeObjectURL(item.resultUrl);
+      });
+      return [];
+    });
+  }, []);
+
+  /**
+   * Process a single image item
+   */
+  const processImageItem = useCallback(
+    async (
+      item: QueueItem,
+      onProgress: (progress: number, msg: string) => void
+    ): Promise<{ blob: Blob; facesDetected: number; facesMasked: number; dimensions: { width: number; height: number } }> => {
+      onProgress(15, 'Chargement de l’image...');
+      const objectUrl = URL.createObjectURL(item.file);
+
+      try {
+        const img = await loadImage(objectUrl);
+        const width = img.naturalWidth;
+        const height = img.naturalHeight;
+
+        onProgress(35, 'Détection faciale et analyse de l’âge (IA)...');
+        const faces: DetectedFace[] = await detectFaces(img, settings.ageThreshold);
+
+        onProgress(70, 'Application des masques d’anonymisation...');
+        const canvas = createSourceCanvas(img, width, height);
+        applyAnonymization(canvas, faces, settings);
+
+        onProgress(90, 'Génération du fichier anonymisé...');
+        const outBlob: Blob = await new Promise((resolve, reject) => {
+          let mime = item.file.type || 'image/jpeg';
+          if (!['image/jpeg', 'image/png', 'image/webp'].includes(mime)) {
+            mime = 'image/jpeg';
+          }
+          canvas.toBlob(
+            (b) => {
+              if (b) resolve(b);
+              else reject(new Error('Canvas toBlob failed'));
+            },
+            mime,
+            0.92
+          );
+        });
+
+        // Clean canvas
+        canvas.width = 0;
+        canvas.height = 0;
+
+        const maskedCount = faces.filter((f) => f.shouldMask).length;
+        return {
+          blob: outBlob,
+          facesDetected: faces.length,
+          facesMasked: maskedCount,
+          dimensions: { width, height },
+        };
+      } finally {
+        URL.revokeObjectURL(objectUrl);
+      }
+    },
+    [detectFaces, settings]
+  );
+
+  /**
+   * Process a single video item via FFmpeg.wasm and face-api
+   */
+  const processVideoItem = useCallback(
+    async (
+      item: QueueItem,
+      onProgress: (progress: number, msg: string) => void
+    ): Promise<{ blob: Blob; facesDetected: number; facesMasked: number; dimensions?: { width: number; height: number } }> => {
+      onProgress(5, 'Initialisation du moteur FFmpeg WebAssembly...');
+      const ffmpeg = await loadFFmpeg();
+
+      const inputExt = item.name.substring(item.name.lastIndexOf('.')) || '.mp4';
+      const inputName = `input_${Date.now()}${inputExt}`;
+      const audioName = `audio_${Date.now()}.aac`;
+      const outputName = `output_${Date.now()}.mp4`;
+
+      onProgress(10, 'Chargement de la vidéo dans le système virtuel...');
+      const fileData = await fetchFile(item.file);
+      await ffmpeg.writeFile(inputName, fileData);
+
+      // 1. Try extracting audio
+      let hasAudio = false;
+      try {
+        onProgress(15, 'Extraction de la piste audio originale...');
+        const audioRes = await ffmpeg.exec(['-i', inputName, '-vn', '-acodec', 'copy', audioName]);
+        if (audioRes === 0) {
+          hasAudio = true;
+        }
+      } catch {
+        console.log('[SafeFace Zero] Aucune piste audio détectée ou extraction impossible.');
+      }
+
+      // 2. Extract frames (capped at 24 fps for smooth preview & fast processing)
+      onProgress(20, 'Découpage vidéo en séquences de frames...');
+      const framePattern = 'frame_%05d.jpg';
+      const extractRes = await ffmpeg.exec([
+        '-i',
+        inputName,
+        '-vf',
+        'fps=24',
+        '-q:v',
+        '2',
+        framePattern,
+      ]);
+
+      if (extractRes !== 0) {
+        throw new Error('Échec de l’extraction des frames vidéo.');
+      }
+
+      // 3. Count extracted frames
+      const dirList = await ffmpeg.listDir('.');
+      const frameFiles = dirList
+        .filter((f) => !f.isDir && f.name.startsWith('frame_') && f.name.endsWith('.jpg'))
+        .map((f) => f.name)
+        .sort();
+
+      const totalFrames = frameFiles.length;
+      if (totalFrames === 0) {
+        throw new Error('Aucune frame extraite de la vidéo.');
+      }
+
+      let totalFacesDetected = 0;
+      let totalFacesMasked = 0;
+      let videoWidth = 0;
+      let videoHeight = 0;
+
+      // 4. Process each frame through Face-API and Canvas Masker
+      for (let i = 0; i < totalFrames; i++) {
+        if (cancelProcessingRef.current) {
+          throw new Error('Traitement annulé par l’utilisateur.');
+        }
+
+        const frameFileName = frameFiles[i];
+        const percent = 25 + Math.round((i / totalFrames) * 55);
+        onProgress(percent, `Traitement IA frame ${i + 1}/${totalFrames}...`);
+
+        const rawFrameData = (await ffmpeg.readFile(frameFileName)) as Uint8Array;
+        const frameBlob = new Blob([new Uint8Array(rawFrameData)], { type: 'image/jpeg' });
+        const frameUrl = URL.createObjectURL(frameBlob);
+
+        try {
+          const img = await loadImage(frameUrl);
+          videoWidth = img.naturalWidth;
+          videoHeight = img.naturalHeight;
+
+          // Run face detection on frame
+          const faces = await detectFaces(img, settings.ageThreshold);
+          totalFacesDetected += faces.length;
+          totalFacesMasked += faces.filter((f) => f.shouldMask).length;
+
+          // Render & mask
+          const canvas = createSourceCanvas(img, videoWidth, videoHeight);
+          applyAnonymization(canvas, faces, settings);
+
+          // Convert back to JPEG Uint8Array
+          const processedBlob: Blob = await new Promise((res, rej) => {
+            canvas.toBlob((b) => (b ? res(b) : rej(new Error('Blob conversion failed'))), 'image/jpeg', 0.9);
+          });
+          const processedBuffer = new Uint8Array(await processedBlob.arrayBuffer());
+
+          // Write out to out_%05d.jpg
+          const outFrameName = frameFileName.replace('frame_', 'out_');
+          await ffmpeg.writeFile(outFrameName, processedBuffer);
+
+          // Free memory
+          canvas.width = 0;
+          canvas.height = 0;
+          await ffmpeg.deleteFile(frameFileName);
+        } finally {
+          URL.revokeObjectURL(frameUrl);
+        }
+      }
+
+      // 5. Final Re-encoding with FFmpeg
+      onProgress(85, 'Encodage final MP4 (H.264 / AAC)...');
+      const ffmpegArgs = ['-framerate', '24', '-i', 'out_%05d.jpg'];
+
+      if (hasAudio) {
+        ffmpegArgs.push('-i', audioName, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest', outputName);
+      } else {
+        ffmpegArgs.push('-c:v', 'libx264', '-pix_fmt', 'yuv420p', outputName);
+      }
+
+      const encodeRes = await ffmpeg.exec(ffmpegArgs);
+      if (encodeRes !== 0) {
+        throw new Error('Échec du réencodage vidéo final.');
+      }
+
+      onProgress(95, 'Finalisation du fichier vidéo...');
+      const outData = (await ffmpeg.readFile(outputName)) as Uint8Array;
+      const resultBlob = new Blob([new Uint8Array(outData)], { type: 'video/mp4' });
+
+      // 6. Cleanup FFmpeg virtual filesystem
+      try {
+        await ffmpeg.deleteFile(inputName);
+        if (hasAudio) await ffmpeg.deleteFile(audioName);
+        await ffmpeg.deleteFile(outputName);
+        for (let i = 0; i < totalFrames; i++) {
+          const outName = frameFiles[i].replace('frame_', 'out_');
+          await ffmpeg.deleteFile(outName).catch(() => {});
+        }
+      } catch (cleanErr) {
+        console.warn('[SafeFace Zero] FFmpeg virtual FS cleanup notice:', cleanErr);
+      }
+
+      return {
+        blob: resultBlob,
+        facesDetected: totalFacesDetected,
+        facesMasked: totalFacesMasked,
+        dimensions: { width: videoWidth, height: videoHeight },
+      };
+    },
+    [detectFaces, loadFFmpeg, settings]
+  );
+
+  /**
+   * Process a single item by ID
+   */
+  const processItem = useCallback(
+    async (id: string) => {
+      const item = queue.find((q) => q.id === id);
+      if (!item) return;
+
+      cancelProcessingRef.current = false;
+      setActiveItemId(id);
+
+      const updateItemState = (updates: Partial<QueueItem>) => {
+        setQueue((prev) => prev.map((q) => (q.id === id ? { ...q, ...updates } : q)));
+      };
+
+      updateItemState({ status: 'processing', progress: 0, progressMessage: 'Démarrage...' });
+
+      try {
+        if (item.type === 'image') {
+          const result = await processImageItem(item, (prog, msg) => {
+            updateItemState({ progress: prog, progressMessage: msg });
+          });
+
+          const resUrl = URL.createObjectURL(result.blob);
+          updateItemState({
+            status: 'done',
+            progress: 100,
+            progressMessage: 'Terminé avec succès',
+            resultBlob: result.blob,
+            resultUrl: resUrl,
+            facesDetected: result.facesDetected,
+            facesMasked: result.facesMasked,
+            dimensions: result.dimensions,
+          });
+        } else if (item.type === 'video') {
+          const result = await processVideoItem(item, (prog, msg) => {
+            updateItemState({ progress: prog, progressMessage: msg });
+          });
+
+          const resUrl = URL.createObjectURL(result.blob);
+          updateItemState({
+            status: 'done',
+            progress: 100,
+            progressMessage: 'Terminé avec succès',
+            resultBlob: result.blob,
+            resultUrl: resUrl,
+            facesDetected: result.facesDetected,
+            facesMasked: result.facesMasked,
+            dimensions: result.dimensions,
+          });
+        }
+      } catch (err: unknown) {
+        const errorMsg = err instanceof Error ? err.message : 'Erreur inconnue lors du traitement.';
+        console.error(`[SafeFace Zero] Erreur traitement ${item.name}:`, err);
+        updateItemState({
+          status: 'error',
+          progress: 0,
+          error: errorMsg,
+          progressMessage: `Erreur: ${errorMsg}`,
+        });
+      } finally {
+        setActiveItemId(null);
+      }
+    },
+    [queue, processImageItem, processVideoItem]
+  );
+
+  /**
+   * Process all pending items sequentially
+   */
+  const processAll = useCallback(async () => {
+    setIsProcessing(true);
+    cancelProcessingRef.current = false;
+
+    // Snapshot of items that are not done
+    const pendingItems = queue.filter((i) => i.status !== 'done');
+
+    for (const item of pendingItems) {
+      if (cancelProcessingRef.current) break;
+      await processItem(item.id);
+    }
+
+    setIsProcessing(false);
+  }, [queue, processItem]);
+
+  /**
+   * Export all processed items as a single ZIP archive
+   */
+  const exportAllAsZip = useCallback(async () => {
+    const doneItems = queue.filter((i) => i.status === 'done' && i.resultBlob);
+    if (doneItems.length === 0) return;
+
+    const itemsToZip = doneItems.map((item) => ({
+      name: item.name,
+      blob: item.resultBlob!,
+    }));
+
+    const zipBlob = await createAnonymizedZip(itemsToZip);
+    saveAs(zipBlob, `SafeFaceZero_Export_${Date.now()}.zip`);
+  }, [queue]);
+
+  /**
+   * Cancel ongoing processing
+   */
+  const cancelProcessing = useCallback(() => {
+    cancelProcessingRef.current = true;
+    setIsProcessing(false);
+    setActiveItemId(null);
+  }, []);
+
+  return {
+    queue,
+    settings,
+    isProcessing,
+    activeItemId,
+    isModelLoaded,
+    isModelLoading,
+    modelError,
+    isFFmpegLoaded,
+    isFFmpegLoading,
+    ffmpegError,
+    updateSettings,
+    addFilesToQueue,
+    removeFromQueue,
+    clearQueue,
+    processItem,
+    processAll,
+    cancelProcessing,
+    exportAllAsZip,
+  };
+}
