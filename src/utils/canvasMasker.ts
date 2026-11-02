@@ -58,6 +58,8 @@ export function applyAnonymization(
   faces: DetectedFace[],
   settings: AnonymizationSettings
 ): void {
+  if (!targetCanvas || targetCanvas.width <= 0 || targetCanvas.height <= 0) return;
+
   const ctx = targetCanvas.getContext('2d');
   if (!ctx) return;
 
@@ -65,20 +67,38 @@ export function applyAnonymization(
   const canvasHeight = targetCanvas.height;
 
   // Filter faces that should be masked (e.g. age <= threshold)
-  const maskedFaces = faces.filter((f) => f.shouldMask);
+  const maskedFaces = faces.filter((f) => f && f.shouldMask && f.box);
 
   // Apply face masking
   for (const face of maskedFaces) {
     const { box } = face;
-    const padding = settings.facePadding / 100;
-    const padX = box.width * padding;
-    const padY = box.height * padding;
+    const rawX = Number(box.x);
+    const rawY = Number(box.y);
+    const rawW = Number(box.width);
+    const rawH = Number(box.height);
 
-    // Expand bounding box with padding
-    const x = Math.max(0, box.x - padX);
-    const y = Math.max(0, box.y - padY);
-    const w = Math.min(canvasWidth - x, box.width + padX * 2);
-    const h = Math.min(canvasHeight - y, box.height + padY * 2);
+    // Skip if coordinates are invalid or dimensions zero
+    if (!Number.isFinite(rawX) || !Number.isFinite(rawY) || !Number.isFinite(rawW) || !Number.isFinite(rawH)) {
+      continue;
+    }
+    if (rawW <= 2 || rawH <= 2) continue;
+
+    // Skip if face bounding box is entirely outside canvas boundaries
+    if (rawX >= canvasWidth || rawY >= canvasHeight || rawX + rawW <= 0 || rawY + rawH <= 0) {
+      continue;
+    }
+
+    const padding = Math.max(0, Math.min(100, Number(settings.facePadding) || 0)) / 100;
+    const padX = rawW * padding;
+    const padY = rawH * padding;
+
+    // Expand bounding box with padding and clamp strictly to canvas viewport
+    const x = Math.max(0, Math.min(canvasWidth - 2, Math.floor(rawX - padX)));
+    const y = Math.max(0, Math.min(canvasHeight - 2, Math.floor(rawY - padY)));
+    const w = Math.max(2, Math.min(canvasWidth - x, Math.ceil(rawW + padX * 2)));
+    const h = Math.max(2, Math.min(canvasHeight - y, Math.ceil(rawH + padY * 2)));
+
+    if (w <= 2 || h <= 2) continue;
 
     const centerX = x + w / 2;
     const centerY = y + h / 2;
@@ -92,41 +112,43 @@ export function applyAnonymization(
       ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
       ctx.clip();
 
-      const requestedPixelSize = Math.max(4, Math.round(settings.blurRadius || 30));
+      const requestedPixelSize = Math.max(4, Math.min(100, Math.round(settings.blurRadius || 30)));
       // Ensure at least 4 blocks across the face so a single lip pixel does not dominate half the face with reddish artifacts
       const minDimension = Math.min(w, h);
       const effectivePixelSize = Math.max(4, Math.min(requestedPixelSize, Math.max(4, Math.round(minDimension / 4))));
 
       // Snap coordinates to a global grid to prevent temporal flickering and dancing color blocks in videos
-      const gridX = Math.floor(x / effectivePixelSize) * effectivePixelSize;
-      const gridY = Math.floor(y / effectivePixelSize) * effectivePixelSize;
-      const gridW = Math.max(effectivePixelSize, Math.ceil((x + w - gridX) / effectivePixelSize) * effectivePixelSize);
-      const gridH = Math.max(effectivePixelSize, Math.ceil((y + h - gridY) / effectivePixelSize) * effectivePixelSize);
+      const gridX = Math.max(0, Math.min(canvasWidth - 1, Math.floor(x / effectivePixelSize) * effectivePixelSize));
+      const gridY = Math.max(0, Math.min(canvasHeight - 1, Math.floor(y / effectivePixelSize) * effectivePixelSize));
+      const gridW = Math.max(effectivePixelSize, Math.min(canvasWidth - gridX, Math.ceil((x + w - gridX) / effectivePixelSize) * effectivePixelSize));
+      const gridH = Math.max(effectivePixelSize, Math.min(canvasHeight - gridY, Math.ceil((y + h - gridY) / effectivePixelSize) * effectivePixelSize));
 
-      const scaledW = Math.max(1, Math.round(gridW / effectivePixelSize));
-      const scaledH = Math.max(1, Math.round(gridH / effectivePixelSize));
+      if (gridW > 0 && gridH > 0) {
+        const scaledW = Math.max(1, Math.round(gridW / effectivePixelSize));
+        const scaledH = Math.max(1, Math.round(gridH / effectivePixelSize));
 
-      const mosaicCanvas = document.createElement('canvas');
-      mosaicCanvas.width = scaledW;
-      mosaicCanvas.height = scaledH;
-      const mCtx = mosaicCanvas.getContext('2d');
+        const mosaicCanvas = document.createElement('canvas');
+        mosaicCanvas.width = scaledW;
+        mosaicCanvas.height = scaledH;
+        const mCtx = mosaicCanvas.getContext('2d');
 
-      if (mCtx) {
-        mCtx.imageSmoothingEnabled = true;
-        mCtx.imageSmoothingQuality = 'medium';
-        // Step 1: Downscale face region into low-res mosaic canvas
-        mCtx.drawImage(targetCanvas, gridX, gridY, gridW, gridH, 0, 0, scaledW, scaledH);
+        if (mCtx && mosaicCanvas.width > 0 && mosaicCanvas.height > 0) {
+          mCtx.imageSmoothingEnabled = true;
+          mCtx.imageSmoothingQuality = 'medium';
+          // Step 1: Downscale face region into low-res mosaic canvas
+          mCtx.drawImage(targetCanvas, gridX, gridY, gridW, gridH, 0, 0, scaledW, scaledH);
 
-        // Step 2: Upscale back with nearest-neighbor interpolation to render sharp, big pixels
-        const prevSmoothing = ctx.imageSmoothingEnabled;
-        ctx.imageSmoothingEnabled = false;
-        (ctx as unknown as { mozImageSmoothingEnabled?: boolean }).mozImageSmoothingEnabled = false;
-        (ctx as unknown as { webkitImageSmoothingEnabled?: boolean }).webkitImageSmoothingEnabled = false;
-        (ctx as unknown as { msImageSmoothingEnabled?: boolean }).msImageSmoothingEnabled = false;
+          // Step 2: Upscale back with nearest-neighbor interpolation to render sharp, big pixels
+          const prevSmoothing = ctx.imageSmoothingEnabled;
+          ctx.imageSmoothingEnabled = false;
+          (ctx as unknown as { mozImageSmoothingEnabled?: boolean }).mozImageSmoothingEnabled = false;
+          (ctx as unknown as { webkitImageSmoothingEnabled?: boolean }).webkitImageSmoothingEnabled = false;
+          (ctx as unknown as { msImageSmoothingEnabled?: boolean }).msImageSmoothingEnabled = false;
 
-        ctx.drawImage(mosaicCanvas, 0, 0, scaledW, scaledH, gridX, gridY, gridW, gridH);
+          ctx.drawImage(mosaicCanvas, 0, 0, scaledW, scaledH, gridX, gridY, gridW, gridH);
 
-        ctx.imageSmoothingEnabled = prevSmoothing;
+          ctx.imageSmoothingEnabled = prevSmoothing;
+        }
       }
 
       ctx.restore();

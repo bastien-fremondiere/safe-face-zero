@@ -23,23 +23,38 @@ export function detectDeviceProfile(): DeviceProfile {
   }
 
   const ua = navigator.userAgent || '';
-  const isMobile =
-    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(ua) ||
-    Boolean(navigator.maxTouchPoints && navigator.maxTouchPoints > 2);
-
   const cores = navigator.hardwareConcurrency || 4;
 
   // @ts-expect-error navigator.deviceMemory is standard in Chromium
-  const memoryGb = navigator.deviceMemory || (isMobile ? 4 : 8);
+  const memoryGb = navigator.deviceMemory || 8;
 
-  // Criteria for low-end: mobile OR <= 4 cores OR <= 4 GB RAM
-  const isLowEnd = isMobile || cores <= 4 || memoryGb <= 4;
+  // Modern Client Hints API check
+  // @ts-expect-error navigator.userAgentData is standard in modern Chromium
+  const uadMobile = navigator.userAgentData?.mobile;
+
+  // Desktop OS detection (never consider desktop OSes as mobile phones, even with touchscreens)
+  const isDesktopOs = /Windows NT|X11; Linux|Macintosh/i.test(ua);
+
+  // Mobile User Agent pattern
+  const isMobileUa =
+    /Android.*Mobile|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+
+  // Only consider as mobile if UA or Client Hints say so, AND it's not a desktop OS, AND core count is typical of a phone/small tablet
+  const isMobile =
+    uadMobile !== undefined
+      ? Boolean(uadMobile && !isDesktopOs && cores <= 8)
+      : Boolean(isMobileUa && !isDesktopOs && cores <= 8);
+
+  // Low-end criteria: actual low-spec hardware (<= 4 cores or <= 4 GB RAM)
+  const isLowEnd = cores <= 4 || memoryGb <= 4;
 
   let description = 'PC de bureau standard (Performances optimales)';
-  if (isMobile) {
-    description = 'Smartphone / Tablette (Mode Éco recommandé pour éviter les surchauffes)';
+  if (cores >= 12) {
+    description = `Station de travail puissante (${cores} cœurs)`;
+  } else if (isMobile) {
+    description = 'Smartphone / Tablette';
   } else if (isLowEnd) {
-    description = 'PC modeste (Mode Éco activé pour fluidifier la mémoire vive)';
+    description = 'Machine modeste (Mode Éco disponible)';
   }
 
   return {

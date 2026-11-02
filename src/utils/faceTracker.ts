@@ -156,22 +156,17 @@ export class FaceTracker {
     // 1. Predict next position for all existing tracks based on velocity & momentum
     for (const track of this.tracks) {
       const damp = Math.max(0.3, Math.pow(0.85, track.missedFrames));
-      const predX = Math.max(
-        0,
-        Math.min(frameWidth - track.box.width, track.box.x + track.velocity.vx * damp)
-      );
-      const predY = Math.max(
-        0,
-        Math.min(frameHeight - track.box.height, track.box.y + track.velocity.vy * damp)
-      );
-      const predW = Math.max(
-        8,
-        Math.min(frameWidth, track.box.width + track.velocity.vw * damp * 0.5)
-      );
-      const predH = Math.max(
-        8,
-        Math.min(frameHeight, track.box.height + track.velocity.vh * damp * 0.5)
-      );
+      const boxW = Math.max(8, Number(track.box.width) || 8);
+      const boxH = Math.max(8, Number(track.box.height) || 8);
+      const vx = Number.isFinite(track.velocity.vx) ? track.velocity.vx : 0;
+      const vy = Number.isFinite(track.velocity.vy) ? track.velocity.vy : 0;
+      const vw = Number.isFinite(track.velocity.vw) ? track.velocity.vw : 0;
+      const vh = Number.isFinite(track.velocity.vh) ? track.velocity.vh : 0;
+
+      const predX = Math.max(0, Math.min(frameWidth - boxW, (Number(track.box.x) || 0) + vx * damp));
+      const predY = Math.max(0, Math.min(frameHeight - boxH, (Number(track.box.y) || 0) + vy * damp));
+      const predW = Math.max(8, Math.min(frameWidth, boxW + vw * damp * 0.5));
+      const predH = Math.max(8, Math.min(frameHeight, boxH + vh * damp * 0.5));
       track.predictedBox = { x: predX, y: predY, width: predW, height: predH };
     }
 
@@ -309,10 +304,10 @@ export class FaceTracker {
     // 7. Output stabilized faces
     return this.tracks.map((t) => ({
       box: {
-        x: Math.round(t.box.x),
-        y: Math.round(t.box.y),
-        width: Math.round(t.box.width),
-        height: Math.round(t.box.height),
+        x: Math.round(Number.isFinite(t.box.x) ? t.box.x : 0),
+        y: Math.round(Number.isFinite(t.box.y) ? t.box.y : 0),
+        width: Math.max(8, Math.round(Number.isFinite(t.box.width) ? t.box.width : 8)),
+        height: Math.max(8, Math.round(Number.isFinite(t.box.height) ? t.box.height : 8)),
       },
       age: Math.round(t.age),
       gender: t.gender,

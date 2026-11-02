@@ -231,9 +231,12 @@ export function useMediaProcessor() {
       try {
         await prepareVideo(video);
 
-        const originalWidth = video.videoWidth || 640;
-        const originalHeight = video.videoHeight || 480;
-        const originalDuration = video.duration || 4;
+        const originalWidth =
+          video.videoWidth && video.videoWidth > 0 ? video.videoWidth : 1280;
+        const originalHeight =
+          video.videoHeight && video.videoHeight > 0 ? video.videoHeight : 720;
+        const originalDuration =
+          video.duration && video.duration > 0 && !isNaN(video.duration) ? video.duration : 4;
 
         // 1. Calculate target dimensions divisible by 2 for H.264
         let targetWidth = originalWidth;
@@ -260,6 +263,8 @@ export function useMediaProcessor() {
           }
         }
 
+        targetWidth = Math.max(2, Math.floor(targetWidth) || 1280);
+        targetHeight = Math.max(2, Math.floor(targetHeight) || 720);
         targetWidth = targetWidth - (targetWidth % 2);
         targetHeight = targetHeight - (targetHeight % 2);
         if (targetWidth < 2) targetWidth = 2;

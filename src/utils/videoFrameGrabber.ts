@@ -102,12 +102,24 @@ export async function prepareVideo(video: HTMLVideoElement): Promise<void> {
     /* autoplay may be refused: seeking still works on most browsers */
   }
   video.pause();
+
+  // Ensure intrinsic dimensions are populated (some iPhone/QuickTime MP4s only expose dimensions after initial seek)
+  if (!video.videoWidth || !video.videoHeight || video.videoWidth <= 0 || video.videoHeight <= 0) {
+    try {
+      const seeked = waitEvent(video, 'seeked', 3000);
+      video.currentTime = 0.05;
+      await seeked;
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 let probeCanvas: HTMLCanvasElement | null = null;
 
 /** Returns true when the canvas content is (almost) uniformly black. */
 export function isCanvasBlack(source: HTMLCanvasElement): boolean {
+  if (!source || source.width <= 0 || source.height <= 0) return false;
   if (!probeCanvas) {
     probeCanvas = document.createElement('canvas');
     probeCanvas.width = 24;
