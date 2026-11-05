@@ -112,7 +112,7 @@ export function applyAnonymization(
       ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
       ctx.clip();
 
-      const requestedPixelSize = Math.max(4, Math.min(100, Math.round(settings.blurRadius || 30)));
+      const requestedPixelSize = Math.max(4, Math.min(100, Math.round(settings.blurRadius || 24)));
       // Ensure at least 4 blocks across the face so a single lip pixel does not dominate half the face with reddish artifacts
       const minDimension = Math.min(w, h);
       const effectivePixelSize = Math.max(4, Math.min(requestedPixelSize, Math.max(4, Math.round(minDimension / 4))));
@@ -153,6 +153,15 @@ export function applyAnonymization(
         }
       }
 
+      ctx.restore();
+
+      // Soft anti-aliased edge blending ring around the face ellipse to blend organically into surrounding hair/background
+      ctx.save();
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.05)';
+      ctx.beginPath();
+      ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
+      ctx.stroke();
       ctx.restore();
     }
 

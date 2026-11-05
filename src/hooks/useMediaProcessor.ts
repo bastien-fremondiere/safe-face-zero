@@ -26,10 +26,10 @@ const saveAs = (fileSaver as unknown as { saveAs?: typeof fileSaver }).saveAs ||
 const deviceProfile = detectDeviceProfile();
 
 const DEFAULT_SETTINGS: AnonymizationSettings = {
-  ageThreshold: 99, // Anonymize all faces by default (complete privacy)
+  ageThreshold: 18, // Protect all minors (< 18yo) by default while preserving adults for the most authentic result
   maskMode: 'blur',
-  blurRadius: 30,
-  facePadding: 15,
+  blurRadius: 24, // Balanced natural mosaic preserving original tones and aesthetics
+  facePadding: 15, // 15% safety margin covering forehead & chin cleanly
   selectedEmoji: '🌈', // Rainbow emoji by default for hybrid/stickers
   faceLogoUrl: null,
   faceLogoImage: null,
@@ -40,8 +40,8 @@ const DEFAULT_SETTINGS: AnonymizationSettings = {
   watermarkOpacity: 80,
   watermarkScale: 15,
   videoEcoMode: deviceProfile.isLowEnd,
-  videoMaxResolution: deviceProfile.isLowEnd ? '720p' : 'original',
-  videoFps: 0, // 0 = Cadence d'origine (Auto, no artificial FPS limit)
+  videoMaxResolution: deviceProfile.isLowEnd ? '720p' : 'original', // Native source resolution
+  videoFps: 0, // 0 = Cadence d'origine (Auto, preserves native video cadence)
   videoFrameSkip: true, // Interpolate 1 frame out of 2 with temporal tracking for 2x faster processing without loss of smoothness
   videoTracking: true, // Temporal face tracking across frames to eliminate flickering
 };
@@ -408,7 +408,7 @@ export function useMediaProcessor() {
             '-tune',
             'fastdecode',
             '-crf',
-            settings.videoEcoMode ? '28' : '23',
+            settings.videoEcoMode ? '28' : '20', // CRF 20 ensures crisp, visually near-lossless output matching the original video
             '-pix_fmt',
             'yuv420p',
             '-movflags',

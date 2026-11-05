@@ -12,9 +12,9 @@ export type WatermarkPosition =
   | 'center';
 
 export interface AnonymizationSettings {
-  ageThreshold: number; // 3 to 99 (>=99 means all ages), default 99
+  ageThreshold: number; // 3 to 99 (>=99 means all ages), default 18 (minors protected by default)
   maskMode: MaskMode; // 'blur' | 'logo' | 'hybrid'
-  blurRadius: number; // 10 to 60, default 30
+  blurRadius: number; // 10 to 60, default 24 (balanced natural aesthetic)
   facePadding: number; // 0 to 50 percent, default 15
   selectedEmoji: string | null; // e.g. '🌈', '😎', '🎃', 'random' or null
   faceLogoUrl: string | null;

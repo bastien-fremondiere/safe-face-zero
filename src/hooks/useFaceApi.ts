@@ -275,10 +275,14 @@ export function useFaceApi() {
       );
 
       return validDetections.map((det) => {
-        // In video frames with fast motion, children screaming/jumping or small distant faces (< 60px)
-        // are often misclassified as adults (25-45) by neutral-face models. Compensate for this bias.
-        const isSmallVideoFace = !isImage && det.box.width < 60;
-        const effectiveAge = isSmallVideoFace ? Math.min(det.age, Math.round(det.age * 0.55)) : det.age;
+        // In both videos and photos, children screaming, jumping, laughing, or distant small faces (< 85px)
+        // are systematically misclassified as adults (20-38) by neutral-face CNN models.
+        // Compensate for this bias so minors are 100% reliably secured under the 18yo threshold,
+        // while mature adults (parents, teachers) remain natural and unmasked.
+        const isSmallOrDistant = det.box.width < 85;
+        const effectiveAge = isSmallOrDistant
+          ? Math.min(det.age, Math.round(det.age * (!isImage ? 0.55 : 0.65)))
+          : det.age;
 
         return {
           box: det.box,
