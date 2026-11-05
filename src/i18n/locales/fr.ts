@@ -36,6 +36,17 @@ export const fr = {
   'dropzone.sampleClassTitle': '1 Professeure + 3 Élèves -> 3 flous et 1 adulte préservé',
   'dropzone.sampleVideo': 'Clip Vidéo (WebM)',
   'dropzone.sampleVideoTitle': 'Vidéo avec enfant en mouvement',
+  'dropzone.samplesAdvancedTitle': 'Jeux de test avancés (Distances & Flou) :',
+  'dropzone.samplePlayground': 'Cour (Distances)',
+  'dropzone.samplePlaygroundTitle': 'Visages proches, moyens et lointains dans une cour de récréation',
+  'dropzone.sampleFamilyBlur': 'Famille (Mouvement)',
+  'dropzone.sampleFamilyBlurTitle': 'Sauts et mouvements avec léger flou de bougé naturel',
+  'dropzone.sampleBirthdayCrowd': 'Foule (Anniversaire)',
+  'dropzone.sampleBirthdayCrowdTitle': 'Foule d’enfants et adultes à différentes profondeurs',
+  'dropzone.sampleSportsAction': 'Action (Course)',
+  'dropzone.sampleSportsActionTitle': 'Mouvement dynamique de course avec flou d’action',
+  'dropzone.sampleBlurryTest': 'Test Flou (Image floue)',
+  'dropzone.sampleBlurryTestTitle': 'Test de robustesse sous flou de bougé et perte de netteté',
   'dropzone.syntheticSample': 'Échantillon de test synthétique',
 
   // Queue

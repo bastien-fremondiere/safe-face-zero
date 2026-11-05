@@ -36,6 +36,17 @@ export const en = {
   'dropzone.sampleClassTitle': '1 Teacher + 3 Students -> 3 blurs & 1 adult preserved',
   'dropzone.sampleVideo': 'Video Clip (WebM)',
   'dropzone.sampleVideoTitle': 'Video with moving child',
+  'dropzone.samplesAdvancedTitle': 'Advanced Benchmark Datasets (Distances & Blur):',
+  'dropzone.samplePlayground': 'Playground (Distances)',
+  'dropzone.samplePlaygroundTitle': 'Near, mid-ground, and small distant faces on a playground',
+  'dropzone.sampleFamilyBlur': 'Family (Movement)',
+  'dropzone.sampleFamilyBlurTitle': 'Jumping and moving with natural subtle motion blur',
+  'dropzone.sampleBirthdayCrowd': 'Crowd (Birthday)',
+  'dropzone.sampleBirthdayCrowdTitle': 'Joyful crowd of kids and adults at multiple depths',
+  'dropzone.sampleSportsAction': 'Action (Sports Sprint)',
+  'dropzone.sampleSportsActionTitle': 'Dynamic running motion with athletic blur',
+  'dropzone.sampleBlurryTest': 'Controlled Blur Test',
+  'dropzone.sampleBlurryTestTitle': 'Robustness test with soft focus / camera shake',
   'dropzone.syntheticSample': 'Synthetic test sample',
 
   // Queue

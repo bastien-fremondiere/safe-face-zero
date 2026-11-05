@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { UploadCloud, Image, Film, Archive, Sparkles, User, Users, Video } from 'lucide-react';
+import { UploadCloud, Image, Film, Archive, Sparkles, User, Users, Video, Layers, Activity, Eye } from 'lucide-react';
 import { getAssetBaseUrl } from '../utils/performance';
 import { useI18n } from '../i18n/I18nContext';
 
@@ -239,6 +239,71 @@ export const DropZone: React.FC<DropZoneProps> = ({ onFilesAdded, disabled }) =>
             >
               <Video className="h-3 w-3 text-indigo-400" />
               {t('dropzone.sampleVideo')}
+            </button>
+          </div>
+        </div>
+
+        {/* Advanced Benchmark & Edge Cases (Distances, Crowds & Motion Blur) */}
+        <div className="mt-2.5 pt-2.5 border-t border-slate-800/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
+            <Layers className="h-3.5 w-3.5 text-purple-400" />
+            <span>{t('dropzone.samplesAdvancedTitle')}</span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              disabled={disabled || isLoadingSample}
+              onClick={() => handleLoadSampleFile('test-playground-distances.jpg', 'cour_recreation_distances.jpg', 'image/jpeg')}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-purple-950/40 hover:bg-purple-900/50 border border-purple-500/40 disabled:opacity-50 px-2 py-1 text-[11px] font-medium text-purple-200 transition-colors"
+              title={t('dropzone.samplePlaygroundTitle')}
+            >
+              <Users className="h-3 w-3 text-purple-400" />
+              {t('dropzone.samplePlayground')}
+            </button>
+
+            <button
+              type="button"
+              disabled={disabled || isLoadingSample}
+              onClick={() => handleLoadSampleFile('test-family-motion-blur.jpg', 'famille_mouvement_flou.jpg', 'image/jpeg')}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-800/90 hover:bg-slate-700/90 border border-slate-700 disabled:opacity-50 px-2 py-1 text-[11px] font-medium text-slate-200 transition-colors"
+              title={t('dropzone.sampleFamilyBlurTitle')}
+            >
+              <Activity className="h-3 w-3 text-emerald-400" />
+              {t('dropzone.sampleFamilyBlur')}
+            </button>
+
+            <button
+              type="button"
+              disabled={disabled || isLoadingSample}
+              onClick={() => handleLoadSampleFile('test-birthday-crowd.jpg', 'foule_anniversaire_enfants.jpg', 'image/jpeg')}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-800/90 hover:bg-slate-700/90 border border-slate-700 disabled:opacity-50 px-2 py-1 text-[11px] font-medium text-slate-200 transition-colors"
+              title={t('dropzone.sampleBirthdayCrowdTitle')}
+            >
+              <Users className="h-3 w-3 text-amber-400" />
+              {t('dropzone.sampleBirthdayCrowd')}
+            </button>
+
+            <button
+              type="button"
+              disabled={disabled || isLoadingSample}
+              onClick={() => handleLoadSampleFile('test-sports-running-blur.jpg', 'course_athletisme_flou_action.jpg', 'image/jpeg')}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-rose-950/40 hover:bg-rose-900/50 border border-rose-500/40 disabled:opacity-50 px-2 py-1 text-[11px] font-medium text-rose-200 transition-colors"
+              title={t('dropzone.sampleSportsActionTitle')}
+            >
+              <Activity className="h-3 w-3 text-rose-400" />
+              {t('dropzone.sampleSportsAction')}
+            </button>
+
+            <button
+              type="button"
+              disabled={disabled || isLoadingSample}
+              onClick={() => handleLoadSampleFile('test-playground-distances-blurry.jpg', 'test_flou_camera_shake.jpg', 'image/jpeg')}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-800/90 hover:bg-slate-700/90 border border-slate-700 disabled:opacity-50 px-2 py-1 text-[11px] font-medium text-slate-300 transition-colors"
+              title={t('dropzone.sampleBlurryTestTitle')}
+            >
+              <Eye className="h-3 w-3 text-cyan-400" />
+              {t('dropzone.sampleBlurryTest')}
             </button>
           </div>
         </div>
