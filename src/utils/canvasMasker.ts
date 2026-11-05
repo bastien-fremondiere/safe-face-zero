@@ -103,27 +103,33 @@ export function applyAnonymization(
     const centerX = x + w / 2;
     const centerY = y + h / 2;
     const radiusX = w / 2;
-    const radiusY = h / 2;
+    // Human faces are anatomically taller than wide (~1.25-1.35x ratio)
+    const effRadiusY = Math.max(h / 2, radiusX * 1.25);
+    const radiusY = effRadiusY;
+
+    // Vertical bounds covering the ovoid from forehead to chin
+    const ovoidTop = Math.max(0, Math.floor(centerY - effRadiusY));
+    const ovoidBottom = Math.min(canvasHeight, Math.ceil(centerY + effRadiusY * 1.02));
+    const ovoidH = ovoidBottom - ovoidTop;
 
     // 1. PIXEL BLUR / MOSAIC (Pixelation) or HYBRID
     if (settings.maskMode === 'blur' || settings.maskMode === 'hybrid') {
       ctx.save();
-      ctx.beginPath();
-      ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
+      traceFaceOvoid(ctx, centerX, centerY, radiusX, radiusY);
       ctx.clip();
 
       const requestedPixelSize = Math.max(4, Math.min(100, Math.round(settings.blurRadius || 24)));
       // Ensure at least 4 blocks across the face so a single lip pixel does not dominate half the face with reddish artifacts
-      const minDimension = Math.min(w, h);
+      const minDimension = Math.min(w, ovoidH);
       const effectivePixelSize = Math.max(4, Math.min(requestedPixelSize, Math.max(4, Math.round(minDimension / 4))));
 
       // Snap coordinates to a global grid to prevent temporal flickering and dancing color blocks in videos
       const gridX = Math.max(0, Math.min(canvasWidth - 1, Math.floor(x / effectivePixelSize) * effectivePixelSize));
-      const gridY = Math.max(0, Math.min(canvasHeight - 1, Math.floor(y / effectivePixelSize) * effectivePixelSize));
+      const gridY = Math.max(0, Math.min(canvasHeight - 1, Math.floor(ovoidTop / effectivePixelSize) * effectivePixelSize));
       const availW = Math.max(1, canvasWidth - gridX);
       const availH = Math.max(1, canvasHeight - gridY);
       const gridW = Math.min(availW, Math.max(1, Math.ceil((x + w - gridX) / effectivePixelSize) * effectivePixelSize));
-      const gridH = Math.min(availH, Math.max(1, Math.ceil((y + h - gridY) / effectivePixelSize) * effectivePixelSize));
+      const gridH = Math.min(availH, Math.max(1, Math.ceil((ovoidTop + ovoidH - gridY) / effectivePixelSize) * effectivePixelSize));
 
       if (gridW > 0 && gridH > 0 && targetCanvas.width > 0 && targetCanvas.height > 0) {
         const scaledW = Math.max(1, Math.round(gridW / effectivePixelSize));
@@ -155,12 +161,11 @@ export function applyAnonymization(
 
       ctx.restore();
 
-      // Soft anti-aliased edge blending ring around the face ellipse to blend organically into surrounding hair/background
+      // Soft anti-aliased edge blending ring around the face ovoid to blend organically into surrounding hair/background
       ctx.save();
       ctx.lineWidth = 1.5;
       ctx.strokeStyle = 'rgba(0, 0, 0, 0.05)';
-      ctx.beginPath();
-      ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
+      traceFaceOvoid(ctx, centerX, centerY, radiusX, radiusY);
       ctx.stroke();
       ctx.restore();
     }
@@ -178,22 +183,21 @@ export function applyAnonymization(
         if (emojiToDraw === 'random') {
           emojiToDraw = face.assignedEmoji || FUN_EMOJIS[Math.abs(Math.round(centerX * 31 + centerY * 17)) % FUN_EMOJIS.length];
         }
-        drawEmojiSticker(ctx, emojiToDraw, centerX, centerY, radiusX, radiusY, isHybrid);
+        drawEmojiSticker(ctx, emojiToDraw, centerX, centerY - effRadiusY * 0.05, radiusX, radiusY, isHybrid);
       } else if (logoImg && logoImg.complete && logoImg.naturalWidth > 0) {
         ctx.save();
-        ctx.beginPath();
-        ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
+        traceFaceOvoid(ctx, centerX, centerY, radiusX, radiusY);
         ctx.clip();
         if (isHybrid) {
           const subW = w * 0.75;
-          const subH = h * 0.75;
+          const subH = ovoidH * 0.75;
           ctx.drawImage(logoImg, centerX - subW / 2, centerY - subH / 2, subW, subH);
         } else {
-          ctx.drawImage(logoImg, x, y, w, h);
+          ctx.drawImage(logoImg, x, ovoidTop, w, ovoidH);
         }
         ctx.restore();
       } else {
-        drawFallbackSticker(ctx, centerX, centerY, radiusX, radiusY, isHybrid);
+        drawFallbackSticker(ctx, centerX, centerY - effRadiusY * 0.05, radiusX, radiusY, isHybrid);
       }
     }
   }
@@ -205,6 +209,65 @@ export function applyAnonymization(
 }
 
 const FUN_EMOJIS = ['😎', '😀', '🥳', '🤩', '😇', '🤠', '🎃', '👻', '🎭', '🐱', '🐶', '🦊', '🐼', '🦁', '🦄', '🤖', '🚀', '⭐', '🎈'];
+
+/**
+ * Traces a natural anatomical ovoid (egg-shape / ovoïde) matching human face morphology:
+ * - Rounded and wider across forehead & cheekbones
+ * - Gently tapered downwards toward the chin and jawline
+ * - Proportional vertical extension (height > width)
+ */
+export function traceFaceOvoid(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  rx: number,
+  ry: number
+): void {
+  // Ensure the vertical radius reflects natural human head morphology (~1.25 to 1.35 ratio)
+  const effRy = Math.max(ry, rx * 1.25);
+  const effRx = rx;
+
+  const topY = cy - effRy;
+  const bottomY = cy + effRy * 1.02;
+  const midY = cy - effRy * 0.05; // Maximum width at temple / cheekbone level
+
+  const wTop = effRx * 0.96;
+  const wCheek = effRx * 1.02;
+  const wJaw = effRx * 0.68; // Elegant natural chin taper
+
+  ctx.beginPath();
+  ctx.moveTo(cx, topY);
+
+  // Top-right (forehead to temple/cheekbone)
+  ctx.bezierCurveTo(
+    cx + wTop * 0.65, topY,
+    cx + wCheek, midY - effRy * 0.45,
+    cx + wCheek, midY
+  );
+
+  // Bottom-right (cheekbone tapering to jaw/chin)
+  ctx.bezierCurveTo(
+    cx + wCheek, midY + effRy * 0.45,
+    cx + wJaw * 1.15, bottomY - effRy * 0.15,
+    cx, bottomY
+  );
+
+  // Bottom-left (chin tapering to left cheekbone)
+  ctx.bezierCurveTo(
+    cx - wJaw * 1.15, bottomY - effRy * 0.15,
+    cx - wCheek, midY + effRy * 0.45,
+    cx - wCheek, midY
+  );
+
+  // Top-left (left cheekbone to top center forehead)
+  ctx.bezierCurveTo(
+    cx - wCheek, midY - effRy * 0.45,
+    cx - wTop * 0.65, topY,
+    cx, topY
+  );
+
+  ctx.closePath();
+}
 
 /**
  * Draws an emoji centered over the face with a subtle backdrop disc in hybrid mode

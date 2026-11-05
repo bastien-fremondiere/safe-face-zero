@@ -21,6 +21,8 @@ export interface FaceTrack {
     vh: number;
   };
   age: number;
+  minAgeSeen: number;
+  isMinorConfirmed: boolean;
   gender: string;
   genderProbability: number;
   shouldMask: boolean;
@@ -70,6 +72,8 @@ export class FaceTracker {
   private maxCoastingFrames: number;
   private smoothingAlpha: number;
   private matchThreshold: number;
+  private uniqueMaskedTrackIds = new Set<number>();
+  private uniqueDetectedTrackIds = new Set<number>();
 
   constructor(options: FaceTrackerOptions = {}) {
     this.fps = options.fps && options.fps > 0 ? options.fps : 30;
@@ -81,6 +85,14 @@ export class FaceTracker {
 
   public get activeTrackCount(): number {
     return this.tracks.length;
+  }
+
+  public get uniqueMaskedCount(): number {
+    return this.uniqueMaskedTrackIds.size;
+  }
+
+  public get uniqueDetectedCount(): number {
+    return this.uniqueDetectedTrackIds.size;
   }
 
   /**
@@ -235,12 +247,24 @@ export class FaceTracker {
 
           // 3c. Age & Gender Smoothing
           track.age = 0.82 * track.age + 0.18 * det.age;
+          track.minAgeSeen = Math.min(track.minAgeSeen, det.age);
           track.gender = det.gender;
           track.genderProbability =
             0.85 * track.genderProbability + 0.15 * det.genderProbability;
 
-          // 3d. Hysteresis on shouldMask to prevent flickering at age threshold
-          if (track.shouldMask) {
+          // 3d. Minor safety lock & hysteresis
+          if (ageThreshold >= 99) {
+            track.shouldMask = true;
+          } else if (
+            det.age <= ageThreshold ||
+            track.minAgeSeen <= ageThreshold ||
+            track.age <= ageThreshold
+          ) {
+            // Once evidence confirms a person is a minor, lock protection for the life of the track
+            track.isMinorConfirmed = true;
+            track.shouldMask = true;
+          } else if (!track.isMinorConfirmed) {
+            // Only unmask if no minor evidence has ever been observed and age is consistently adult
             if (det.age >= ageThreshold + 2 && track.age >= ageThreshold + 1) {
               track.consecutiveUnmaskVotes++;
               if (track.consecutiveUnmaskVotes >= 4) {
@@ -249,16 +273,6 @@ export class FaceTracker {
               }
             } else {
               track.consecutiveUnmaskVotes = 0;
-            }
-          } else {
-            if (det.age <= ageThreshold - 1 && track.age <= ageThreshold) {
-              track.consecutiveMaskVotes++;
-              if (track.consecutiveMaskVotes >= 3) {
-                track.shouldMask = true;
-                track.consecutiveMaskVotes = 0;
-              }
-            } else {
-              track.consecutiveMaskVotes = 0;
             }
           }
         }
@@ -279,16 +293,25 @@ export class FaceTracker {
         if (!matchedDetections.has(dIdx)) {
           const det = detections[dIdx];
           const assignedEmoji = det.assignedEmoji || FUN_EMOJIS[(this.nextTrackId * 7) % FUN_EMOJIS.length];
+          const isMinor = ageThreshold >= 99 || det.age <= ageThreshold || det.shouldMask;
+          const newTrackId = this.nextTrackId++;
+
+          this.uniqueDetectedTrackIds.add(newTrackId);
+          if (det.shouldMask || isMinor) {
+            this.uniqueMaskedTrackIds.add(newTrackId);
+          }
 
           this.tracks.push({
-            id: this.nextTrackId++,
+            id: newTrackId,
             box: { ...det.box },
             predictedBox: { ...det.box },
             velocity: { vx: 0, vy: 0, vw: 0, vh: 0 },
             age: det.age,
+            minAgeSeen: det.age,
+            isMinorConfirmed: isMinor,
             gender: det.gender,
             genderProbability: det.genderProbability,
-            shouldMask: det.shouldMask,
+            shouldMask: det.shouldMask || isMinor,
             assignedEmoji,
             totalHits: 1,
             consecutiveHits: 1,
@@ -311,27 +334,32 @@ export class FaceTracker {
       ) {
         return false;
       }
-      // Adaptive coast limit: even a face briefly seen for 1 frame gets at least 5 frames (~160ms) of coasting
-      // so fast camera rotation and brief motion blur don't drop the tracking mask abruptly.
-      const coastLimit = t.totalHits >= 3 ? this.maxCoastingFrames : Math.max(5, Math.round(this.fps * 0.25));
+      // Single-hit tracks that were only seen once: if it was a false positive, only coast 1 frame max.
+      // Once confirmed with >= 2 hits: allow robust coasting up to maxCoastingFrames.
+      const coastLimit = t.totalHits >= 2 ? this.maxCoastingFrames : 1;
       return t.missedFrames <= coastLimit;
     });
 
     // 7. Output stabilized faces
-    return this.tracks.map((t) => ({
-      box: {
-        x: Math.round(Number.isFinite(t.box.x) ? t.box.x : 0),
-        y: Math.round(Number.isFinite(t.box.y) ? t.box.y : 0),
-        width: Math.max(8, Math.round(Number.isFinite(t.box.width) ? t.box.width : 8)),
-        height: Math.max(8, Math.round(Number.isFinite(t.box.height) ? t.box.height : 8)),
-      },
-      age: Math.round(t.age),
-      gender: t.gender,
-      genderProbability: t.genderProbability,
-      shouldMask: t.shouldMask,
-      trackId: t.id,
-      assignedEmoji: t.assignedEmoji,
-    }));
+    return this.tracks.map((t) => {
+      if (t.shouldMask) {
+        this.uniqueMaskedTrackIds.add(t.id);
+      }
+      return {
+        box: {
+          x: Math.round(Number.isFinite(t.box.x) ? t.box.x : 0),
+          y: Math.round(Number.isFinite(t.box.y) ? t.box.y : 0),
+          width: Math.max(8, Math.round(Number.isFinite(t.box.width) ? t.box.width : 8)),
+          height: Math.max(8, Math.round(Number.isFinite(t.box.height) ? t.box.height : 8)),
+        },
+        age: Math.round(t.age),
+        gender: t.gender,
+        genderProbability: t.genderProbability,
+        shouldMask: t.shouldMask,
+        trackId: t.id,
+        assignedEmoji: t.assignedEmoji,
+      };
+    });
   }
 
   /**
@@ -340,5 +368,7 @@ export class FaceTracker {
   public reset(): void {
     this.tracks = [];
     this.nextTrackId = 1;
+    this.uniqueMaskedTrackIds.clear();
+    this.uniqueDetectedTrackIds.clear();
   }
 }

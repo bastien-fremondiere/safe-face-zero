@@ -527,10 +527,17 @@ export function useMediaProcessor() {
         canvas.width = 0;
         canvas.height = 0;
 
+        const facesDetectedCount = settings.videoTracking
+          ? tracker.uniqueDetectedCount
+          : Math.round(totalFacesDetected / Math.max(1, totalSteps));
+        const facesMaskedCount = settings.videoTracking
+          ? tracker.uniqueMaskedCount
+          : Math.round(totalFacesMasked / Math.max(1, totalSteps));
+
         return {
           blob: resultBlob,
-          facesDetected: totalFacesDetected,
-          facesMasked: totalFacesMasked,
+          facesDetected: facesDetectedCount,
+          facesMasked: facesMaskedCount,
           dimensions: { width: targetWidth, height: targetHeight },
         };
       } finally {
